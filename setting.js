@@ -5,22 +5,22 @@ Hapus?! Gak gua kasih lagi yang no enc!!
 const chalk = require("chalk");
 const fs = require("fs");
 
-global.owner = "6289529161314"
-global.namaOwner = "Amane"
+global.owner = "62895602416781"
+global.namaOwner = "RzkyNT"
 global.mode_public = true
 
 global.linkSaluran = "https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d"
 global.linkChannel = "https://whatsapp.com/channel/0029VbAu2g6ATRSpePrpSp3L"
-global.linkWebsite = "https://lynk.id/amaneofc"
+global.linkWebsite = "https://rizqiahsansetiawan.ct.ws"
 global.idChannel = "120363400297473298@newsletter"
 global.linkGrup = "https://chat.whatsapp.com/HqEsfykjNCRA7GecpenP9V"
-global.thumbnail = "https://raw.githubusercontent.com/obet24077/dat4/main/uploads/af3818-1764839978243.jpg"
-global.thumbnail2 = "https://files.catbox.moe/0ls0pg.png"
+global.thumbnail = "https://media.licdn.com/dms/image/v2/D5616AQFKZCq6Dlq7QA/profile-displaybackgroundimage-shrink_350_1400/B56ZmoIJ75I4AY-/0/1759462335419?e=1766620800&v=beta&t=QXzM0qaccjSX3A1bRkdeamDQ2koGVawGiWwQecuYv34"
+global.thumbnail2 = "https://media.licdn.com/dms/image/v2/D5616AQFKZCq6Dlq7QA/profile-displaybackgroundimage-shrink_350_1400/B56ZmoIJ75I4AY-/0/1759462335419?e=1766620800&v=beta&t=QXzM0qaccjSX3A1bRkdeamDQ2koGVawGiWwQecuYv34"
 
-global.dana = "085748363750"
+global.dana = "0895602416781"
 global.ovo = "Tidak tersedia"
 global.gopay = "Tidak tersedia"
-global.qris = "https://files.catbox.moe/ep87si.jpg"
+global.qris = "Tidak Tersedia"
 
 global.JedaPushkontak = 8000
 global.JedaJpm = 7000
@@ -31,7 +31,7 @@ global.loc = "1" // Isi id location
 global.domain = 'https://neonprivateamane.kantinvps.my.id'
 global.apikey = 'ptla_nfxGfDEtqPKTvtEmiybbvHqfMnaTqhUCVLbMsEeAVoj' // Isi api ptla
 global.capikey = 'ptlc_OFai7puWJNdI9yJDKovikt3fo5sD9bCOnu5cOCIK4jV' // Isi api ptlc
-global.Dev = "YT: Amane Ofc"
+global.Dev = "IG: Rzky.NT"
 
 
 global.subdomain = {

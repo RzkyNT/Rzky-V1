@@ -18,6 +18,35 @@ const { exec, spawn, execSync } = require('child_process');
 const { prepareWAMessageMedia, generateWAMessageFromContent } = require("@whiskeysockets/baileys");
 const LoadDataBase = require("./storage/LoadDatabase.js");
 
+// Safe wrapper for prepareWAMessageMedia to avoid hard failures when remote hosts return 403/deny
+async function safePrepareWAMessageMedia(media, options = {}) {
+    try {
+        return await prepareWAMessageMedia(media, options);
+    } catch (err) {
+        console.warn('safePrepareWAMessageMedia: remote media fetch failed ->', err && err.message ? err.message : err);
+        try {
+            // if there's a local fallback image, use it
+            const fallbackPath = './storage/fallback.jpg';
+            if (fs.existsSync(fallbackPath)) {
+                return await prepareWAMessageMedia({ image: fs.readFileSync(fallbackPath) }, options);
+            }
+            // try global.thumbnail2 first, then global.thumbnail as last resort
+            if (global && global.thumbnail2) {
+                try {
+                    return await prepareWAMessageMedia({ image: { url: global.thumbnail2 } }, options);
+                } catch (_) {}
+            }
+            if (global && global.thumbnail) {
+                return await prepareWAMessageMedia({ image: { url: global.thumbnail } }, options);
+            }
+        } catch (e) {
+            console.error('safePrepareWAMessageMedia: fallback also failed ->', e && e.message ? e.message : e);
+        }
+        // return empty object so callers that spread result won't crash
+        return {};
+    }
+}
+
 module.exports = async (m, sock) => {
 try {
 await LoadDataBase(sock, m)
@@ -112,7 +141,7 @@ const FakeSticker = {
         },
         message: {
             stickerPackMessage: {
-                stickerPackId: "\000",
+                stickerPackId: "\x00",
                 name: `Powered By ${global.namaOwner}.`,
                 publisher: "kkkk"
             }
@@ -275,12 +304,12 @@ case "mane":
 case "menu":{
 let menu = `
 ${global.ucapan()}
-Hello👋 I am a simple store WhatsApp bot. I was created by Amane Ofc, nice to help you. 
-Please Selected Button Now!! 
-▢ Botname : Mane Store 
-▢ Version : 4.0.0
+Halo @${m.sender.split("@")[0]}, Saya adalah asissten whatsapp Bot buatan RzkyNT, Senang bisa membantu kamu. 
+Silahkan pilih menu dibawah ini
+▢ Botname : Rzky Store 
+▢ Version : 1.0.0
 ▢ Mode : ${sock.public ? "Public" : "Self"}
-▢ Creator : YT Amane Ofc
+▢ Creator : RzkyNT
 ▢ Website : ${global.linkWebsite}
 ▢ Runtime : ${runtime(process.uptime())}  
   
@@ -288,38 +317,37 @@ Please Selected Button Now!!
 ➤ .menuios (command Ios) 
 ➤ .allmenu (button) 
 ➤ .allmenuv2 (no button) 
-
-╭▢ *THANKS TO*
-│Amane Ofc (Dev) 
-│Mane Official (Dev2) 
-│Neon Ofc (Wakil dev) 
-│Panze (Wakil Dev) 
-│ALL pengguna Sc ini
-╰▢
-  
-➤  ｢ *INFORMASI UPDATE SCRIPT* ｣ 
-https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d`
+`
+// ╭▢ *THANKS TO*
+// │Amane Ofc (Dev) 
+// │RzkyNT (Dev2) 
+// │Neon Ofc (Wakil dev) 
+// │Panze (Wakil Dev) 
+// │ALL pengguna Sc ini
+// ╰▢`
+// ➤  ｢ *INFORMASI UPDATE SCRIPT* ｣ 
+// https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d`
         await sock.sendMessage(m.chat, {
         interactiveMessage: {
             title: menu, 
             footer: global.Dev, 
-            thumbnail: global.thumbnail2,
+            thumbnail: fs.existsSync('./storage/fallback.jpg') ? fs.readFileSync('./storage/fallback.jpg') : undefined,
             nativeFlowMessage: {
                 messageParamsJson: JSON.stringify({
                     limited_time_offer: {
-                        text: "Mane Store V4.0.0",
-                        url: "t.me/maneeofficiall",
+                        text: "RzkyNT Store V1.0.0",
+                        url: "https://rizqiahsansetiawan.ct.ws",
                         copy_code: "Expired 30/12/2025",
                         expiration_time: Date.now() * 999
                     },
                     bottom_sheet: {
                         in_thread_buttons_limit: 2,
                         divider_indices: [1, 2, 3, 4, 5, 999],
-                        list_title: "YT Amane Ofc",
-                        button_title: "Sellect Button🔥"
+                        list_title: "RzkyNT",
+                        button_title: "Select Menu"
                     },
                     tap_target_configuration: {
-                        title: "Mane Official",
+                        title: "RzkyNT",
                         description: "bomboclard",
                         canonical_url: "https://t.me/maneeofficiall",
                         domain: "shop.example.com",
@@ -341,7 +369,7 @@ https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d`
                             title: "Developer",
                             sections: [
                                 {
-                                    title: "Amane Official ♻️",
+                                    title: "RzkyNT ♻️",
                                     highlight_label: "label",
                                     rows: [
                                         {
@@ -448,18 +476,18 @@ case 'allmenuvid': {
         }
         image.quality(90);
         const thumbnailBuffer = await image.getBufferAsync(jimp.MIME_JPEG);
-        const menuCaption = `*Mane Store 🛍*
+        const menuCaption = `*RzkyNT Store 🛍*
 
 Halo👋🏻 @${m.sender.split("@")[0]} saya siap membantu.
 Berikut beberapa kemampuan saya :
 
 ╭───☢︎ *Informasi Bot*
-│ ◈ Nama-Bot : Mane Store
+│ ◈ Nama-Bot : RzkyNT
 │ ◈ Devoloper : ${global.Dev}
 │ ◈ Mode : ${sock.public ? '🌐 Public' : '🔒 Self'}
-│ ◈ Version : 4.0.0
+│ ◈ Version : 1.0.0
 │ ◈ Runtime : ${runtime(process.uptime())}
-│ ◈ YouTube : Amane Ofc
+│ ◈ Instagram : Rzky.NT
 ╰──────────────────⪨
 
  ➢ 𝗧𝗢𝗣 𝗚𝗔𝗡𝗜𝗘𝗥 𝗠𝗘𝗡𝗨
@@ -611,7 +639,7 @@ ${global.ucapan()}
  ▢ 𝗕𝗢𝗧𝗡𝗔𝗠𝗘: Mane Store
  ▢ 𝗩𝗘𝗥𝗦𝗜𝗢𝗡: 𝟰.𝟬.𝟬
  ▢ 𝗕𝗢𝗧𝗠𝗢𝗗𝗘: ${sock.public ? "Public" : "Self"}
- ▢ 𝗗𝗘𝗩𝗘𝗟𝗢𝗣𝗘𝗥: YT Amane Ofc
+ ▢ 𝗗𝗘𝗩𝗘𝗟𝗢𝗣𝗘𝗥: RzkyNT
 
  ➢ 𝗧𝗢𝗣 𝗚𝗔𝗡𝗜𝗘𝗥 𝗠𝗘𝗡𝗨
 - .listproduk
@@ -719,10 +747,10 @@ let msg = await generateWAMessageFromContent(m.chat, {
  viewOnceMessageV2: {
  message: {
  interactiveMessage: {
- header: {
- ...(await prepareWAMessageMedia({ image: { url: global.thumbnail }}, { upload: sock.waUploadToServer })),
-hasMediaAttachment: true
- }, 
+            header: {
+                ...(await safePrepareWAMessageMedia({ image: { url: global.thumbnail }}, { upload: sock.waUploadToServer })),
+            hasMediaAttachment: true
+         }, 
  body: { text: teks },
  nativeFlowMessage: {
  buttons: [
@@ -756,7 +784,7 @@ Hello👋 I am a simple store WhatsApp bot. I was created by Amane Ofc, nice to 
 ▢ Botname : Mane Store 
 ▢ Version : 4.0.0
 ▢ Mode : ${sock.public ? "Public" : "Self"}
-▢ Creator : YT Amane Ofc
+▢ Creator : RzkyNT
 ▢ Website : ${global.linkWebsite}
 ▢ Runtime : ${runtime(process.uptime())}  
  
@@ -872,7 +900,7 @@ https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d`
             nativeFlowMessage: {
                 messageParamsJson: JSON.stringify({
                     limited_time_offer: {
-                        text: "Mane Store V4.0.0",
+                        text: "RzkyNT Store V1.0.0",
                         url: "t.me/maneeofficiall",
                         copy_code: "Expired 3/11/2026",
                         expiration_time: Date.now() * 999
@@ -880,11 +908,11 @@ https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d`
                     bottom_sheet: {
                         in_thread_buttons_limit: 2,
                         divider_indices: [1, 2, 3, 4, 5, 999],
-                        list_title: "YT Amane Ofc",
-                        button_title: "Sellect Menu♻️"
+                        list_title: "RzkyNT",
+                        button_title: "Select Menu♻️"
                     },
                     tap_target_configuration: {
-                        title: "Mane Official",
+                        title: "RzkyNT",
                         description: "bomboclard",
                         canonical_url: "https://t.me/maneeofficiall",
                         domain: "shop.example.com",
@@ -906,7 +934,7 @@ https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d`
                             title: "Menu⤵️",
                             sections: [
                                 {
-                                    title: "Amane Official ♻️",
+                                    title: "ARzkyNT ♻️",
                                     highlight_label: "label",
                                     rows: [
                                         {
@@ -1128,7 +1156,14 @@ const os = require('os');
   async function getServerInfo(m) {
     const timestamp = speed();
     const tio = await nou.os.oos();
-    const tot = await nou.drive.info();
+        let tot;
+        try {
+            tot = await nou.drive.info();
+        } catch (err) {
+            // node-os-utils drive.info() uses Unix `df` and fails on Windows.
+            // Fallback to N/A to avoid throwing and crashing the bot on Windows.
+            tot = { usedGb: 'N/A', totalGb: 'N/A', freeGb: 'N/A' };
+        }
     const memInfo = await nou.mem.info();
     const totalGB = (memInfo.totalMemMb / 1024).toFixed(2);
     const usedGB = (memInfo.usedMemMb / 1024).toFixed(2);
@@ -1162,7 +1197,7 @@ case "bratvid":
 case "neon": {
 if (!text) return m.reply(`*Contoh:* ${cmd} hallo aku Amane!`)
 var media = await getBuffer(`https://api.siputzx.my.id/api/m/brat?text=${text}&isAnimated=true&delay=500`)
-await sock.sendStimg(m.chat, media, m, {packname: "YT Amane Ofc"})
+await sock.sendStimg(m.chat, media, m, {packname: "RzkyNT"})
 }
 break
 case "openai": case "ai": {
@@ -1833,7 +1868,7 @@ case "listproduk": {
 if (db.settings.respon.length < 1) return m.reply("Tidak ada listproduk.")
 let teks = ""
 for (let i of db.settings.respon) {
-teks += `\n- *Cmd:* ${i.id}
+teks += `\n- *Barang:* ${i.id}
 - *Response:* ${i.response}\n`
 }
 return m.reply(teks)
@@ -1999,7 +2034,7 @@ case "pay": {
                 interactiveMessage: {
                     header: {
                     hasMediaAttachment: true, 
-                    ...(await prepareWAMessageMedia({ image: { url: global.qris } }, { upload: sock.waUploadToServer })),
+                    ...(await safePrepareWAMessageMedia({ image: { url: global.qris } }, { upload: sock.waUploadToServer })),
                     }, 
                     body: { 
                         text: `*Daftar Payment ${namaOwner} 🔖*`

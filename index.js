@@ -80,7 +80,7 @@ const database = new DataBase();
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState("Session");
-    const pairingCode = true;
+    const pairingCode = false;
 
     const sock = makeWASocket({
         browser: Browsers.ubuntu("Chrome"), 
@@ -122,6 +122,30 @@ if (pairingCode && !sock.authState.creds.registered) {
 }
 
     store?.bind(sock.ev);
+
+        // Wrap sendMessage to log outgoing responses for debugging
+        try {
+            const _origSend = sock.sendMessage.bind(sock);
+            sock.sendMessage = async (...args) => {
+                try {
+                    const res = await _origSend(...args);
+                    try {
+                        const [jid, message] = args;
+                        const type = message && typeof message === 'object' ? Object.keys(message)[0] : typeof message;
+                        let preview = '';
+                        if (message && message.text) preview = message.text;
+                        else if (message && message.image && message.image.caption) preview = message.image.caption;
+                        else if (message && message.buttons) preview = '[buttons]';
+                        else if (message && message.sticker) preview = '[sticker]';
+                        else preview = JSON.stringify(message).slice(0, 200);
+                        console.log(chalk.hex('#82AAFF')('>> Response >>'), jid, 'type:', type, 'preview:', preview);
+                    } catch (e) {}
+                    return res;
+                } catch (err) {
+                    throw err;
+                }
+            };
+        } catch (e) {}
 
     sock.ev.on("creds.update", saveCreds);
 
