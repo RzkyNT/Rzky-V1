@@ -307,7 +307,7 @@ break;
 case "order":
 case "pesan": {
     const crm = loadCrmData();
-    if (!crm.customers[m.sender]) return m.reply(`Anda belum terdaftar. Silakan daftar dulu dengan perintah:\n.daftar Nama | Alamat`);
+    if (!crm.customers[m.sender]) return m.reply(`Anda belum terdaftar. Silakan daftar dulu dengan perintah: *daftar*`);
 
     if (!text) {
         // Interactive Product List using Native Flow
@@ -455,6 +455,8 @@ case "orderconfirm": {
         customerId: m.sender,
         customerName: crm.customers[m.sender].name,
         address: crm.customers[m.sender].address,
+        latitude: crm.customers[m.sender].latitude, // Pass coords to order
+        longitude: crm.customers[m.sender].longitude,
         item: product.name,
         amount: amount,
         total: total,
@@ -589,6 +591,66 @@ case "listkurir": {
         list += `${i+1}. wa.me/${c}\n`;
     });
     m.reply(list);
+}
+break;
+
+// === CUSTOMER PROFILE MANAGEMENT ===
+case "profile":
+case "profil":
+case "me": {
+    const crm = loadCrmData();
+    const cust = crm.customers[m.sender];
+    
+    if (!cust) return m.reply("Anda belum terdaftar. Ketik .daftar");
+    
+    let btnMsg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: `👤 *PROFIL PELANGGAN*\n\nNama: ${cust.name}\nAlamat: ${cust.address}\nTotal Order: ${cust.orders_count}\nBergabung: ${cust.joined.split('T')[0]}` },
+                    footer: { text: "Depot Minhaqua" },
+                    nativeFlowMessage: {
+                        buttons: [
+                            {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "✏️ Ubah Nama",
+                                    id: ".editname"
+                                })
+                            },
+                             {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "✏️ Ubah Alamat/Lokasi",
+                                    id: ".editaddress"
+                                })
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    
+    return sock.relayMessage(m.chat, btnMsg.message, { messageId: btnMsg.key.id });
+}
+break;
+
+case "editname": {
+    if (!global.registrationSession) global.registrationSession = {};
+    global.registrationSession[m.sender] = { step: "EDIT_NAME" };
+    m.reply("👤 Silakan kirim *Nama Baru* Anda:");
+}
+break;
+
+case "editaddress": {
+    if (!global.registrationSession) global.registrationSession = {};
+    global.registrationSession[m.sender] = { step: "EDIT_LOCATION" }; // Reuse logic similar to registration
+    m.reply("📍 Silakan kirim *Share Location* (Lokasi Maps) baru Anda.\n\nAtau balas '.' jika ingin melewati (tetap pakai lokasi lama) dan hanya ubah detail alamat.");
 }
 break;
 
@@ -850,6 +912,14 @@ case "antar": { // Renamed concept but keeping legacy alias for now or redirecti
     order.courierId = m.sender.split('@')[0]; // Assign courier
     saveCrmData(crm);
     
+    // Generate Maps URL
+    let mapsUrl = "";
+    if (order.latitude && order.longitude) {
+         mapsUrl = `https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`;
+    } else {
+         mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}`;
+    }
+
     // Replace simple reply with button
     let btnMsg = generateWAMessageFromContent(m.chat, {
         viewOnceMessage: {
@@ -863,6 +933,14 @@ case "antar": { // Renamed concept but keeping legacy alias for now or redirecti
                     footer: { text: "Panel Kurir" },
                     nativeFlowMessage: {
                         buttons: [
+                            {
+                                name: "cta_url",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "📍 Buka Google Maps",
+                                    url: mapsUrl,
+                                    merchant_url: mapsUrl
+                                })
+                            },
                             {
                                 name: "quick_reply",
                                 buttonParamsJson: JSON.stringify({
@@ -950,7 +1028,7 @@ case "selesai": {
     
     order.status = "Selesai";
     saveCrmData(crm);
-    m.reply(`✅ Order ${order.id} status diubah menjadi *Selesai*.`);
+    m.reply(`✅ Order ${order.customerName} dengan ID ${order.id} status diubah menjadi *Selesai*.`);
     sock.sendMessage(order.customerId, { text: `✅ Pesanan Anda ${order.amount}x ${order.item} telah selesai diantar. Terima kasih!` });
     
     // Notify Owner if Courier Updated
@@ -5899,10 +5977,88 @@ if (global.registrationSession && global.registrationSession[m.sender]) {
     if (session.step === "WAITING_NAME") {
         if (!m.body) return m.reply("Mohon kirim nama Anda (teks).");
         session.name = m.body;
-        session.step = "WAITING_ADDRESS";
-        return m.reply(`Halo ${session.name}, sekarang silakan kirim alamat lengkap Anda.`);
-    } else if (session.step === "WAITING_ADDRESS") {
-        if (!m.body) return m.reply("Mohon kirim alamat Anda (teks).");
+        session.step = "WAITING_LOCATION";
+        return m.reply(`Halo ${session.name}, untuk memudahkan pengantaran, mohon kirimkan *Share Location* (Lokasi Terkini) Anda.`);
+        
+    } else if (session.step === "WAITING_LOCATION") {
+        if (m.type === 'locationMessage' || (m.msg && m.msg.degreesLatitude)) {
+            session.latitude = m.msg.degreesLatitude;
+            session.longitude = m.msg.degreesLongitude;
+            session.step = "WAITING_ADDRESS_DETAIL";
+            return m.reply(`✅ Lokasi diterima.\n\nSekarang mohon ketik *Alamat Lengkap* (Nama Jalan, Blok, Nomor Rumah, Patokan) untuk detail pengantaran.`);
+        } else {
+             // Allow skipping location if they really can't share it, or force them. 
+             // Let's assume we allow text fallback if they reply with text "skip" or just type address directly if they cant share loc.
+             // But user requested: "minta alamat juga... jadi jika kurir sudah sampai lokasi tinggal cari alamatnya".
+             // So better to force location first OR if they type coordinates manually? No, keep it simple.
+             // If they type text, assume they can't share location and proceed to address detail, but warn them.
+             
+             if (m.body) {
+                 if (m.body.toLowerCase() === 'lanjut' || m.body === '.') {
+                      session.latitude = null;
+                      session.longitude = null;
+                      session.step = "WAITING_ADDRESS_DETAIL";
+                      return m.reply("⚠️ Lokasi dilewati.\n\nSekarang mohon ketik *Alamat Lengkap* (Nama Jalan, Blok, Nomor Rumah, Patokan) untuk detail pengantaran.");
+                 }
+                 return m.reply("Mohon kirim *Share Location* (Peta) terlebih dahulu. \n\nJika tidak bisa, balas dengan titik (.) atau 'Lanjut' untuk input alamat manual saja.");
+             }
+        }
+    } else if (session.step === "EDIT_NAME") {
+        if (!m.body) return m.reply("Mohon kirim nama baru Anda.");
+        const crm = loadCrmData();
+        if (crm.customers[m.sender]) {
+            crm.customers[m.sender].name = m.body;
+            saveCrmData(crm);
+            delete global.registrationSession[m.sender];
+            m.reply(`✅ Nama berhasil diubah menjadi: ${m.body}`);
+        } else {
+             delete global.registrationSession[m.sender];
+             m.reply("⚠️ Data pelanggan tidak ditemukan.");
+        }
+        
+    } else if (session.step === "EDIT_LOCATION") {
+         if (m.type === 'locationMessage' || (m.msg && m.msg.degreesLatitude)) {
+            session.latitude = m.msg.degreesLatitude;
+            session.longitude = m.msg.degreesLongitude;
+            session.step = "EDIT_ADDRESS_DETAIL"; // New sub-step
+            return m.reply(`✅ Lokasi Baru diterima.\n\nSekarang mohon ketik *Alamat Lengkap* baru Anda.`);
+        } else if (m.body === '.') {
+             session.latitude = null; // Should we keep old loc? No, logic says skipping means no map data or maybe user just wants to edit address text.
+             // Actually user might want to keep old Coords but change text only.
+             // Let's assume '.' means "Skip map update, go to address update".
+             // We need to fetch old data if we want to keep it, but here we are in session.
+             // Let's just move to address detail.
+             session.step = "EDIT_ADDRESS_DETAIL";
+             return m.reply("⚠️ Lokasi dilewati. Silakan masukkan alamat lengkap baru.");
+        } else {
+            return m.reply("Mohon kirim *Share Location* baru, atau balas '.' untuk lanjut ubah alamat teks saja.");
+        }
+        
+    } else if (session.step === "EDIT_ADDRESS_DETAIL") {
+        if (!m.body) return m.reply("Mohon kirim detail alamat baru Anda.");
+        const crm = loadCrmData();
+        if (crm.customers[m.sender]) {
+            crm.customers[m.sender].address = m.body;
+            
+            // Update coords only if new ones provided in session, otherwise keep old? 
+            // If session.latitude is set, update it. If null (skipped), maybe keep old? 
+            // Logic above: null was set if skipped. If we want to keep old, we should have loaded it.
+            // But usually "Edit Profile" implies overwriting. If I say "skip location" in edit, maybe I only moved to next door with same text? 
+            // Simpler: Update if provided.
+            if (session.latitude && session.longitude) {
+                crm.customers[m.sender].latitude = session.latitude;
+                crm.customers[m.sender].longitude = session.longitude;
+            }
+            
+            saveCrmData(crm);
+            delete global.registrationSession[m.sender];
+            m.reply(`✅ Alamat & Lokasi berhasil diperbarui!`);
+        } else {
+             delete global.registrationSession[m.sender];
+             m.reply("⚠️ Data pelanggan tidak ditemukan.");
+        }
+    } else if (session.step === "WAITING_ADDRESS_DETAIL") {
+        if (!m.body) return m.reply("Mohon kirim detail alamat Anda (teks).");
         const address = m.body;
         const name = session.name;
         
@@ -5911,7 +6067,9 @@ if (global.registrationSession && global.registrationSession[m.sender]) {
         crm.customers[m.sender] = {
             id: m.sender,
             name: name,
-            address: address,
+            address: address, // Real text address
+            latitude: session.latitude,
+            longitude: session.longitude,
             phone: m.sender.split("@")[0],
             joined: new Date().toISOString(),
             orders_count: 0

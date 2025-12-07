@@ -6,15 +6,19 @@
       "address": "Blok U1 No 7",
       "phone": "62895602416781",
       "joined": "2025-12-07T09:44:09.485Z",
-      "orders_count": 10
+      "orders_count": 12,
+      "latitude": -6.1990431,
+      "longitude": 107.009803
     },
     "6285710938401@s.whatsapp.net": {
       "id": "6285710938401@s.whatsapp.net",
       "name": "Lilis",
-      "address": "VGB BLOK A1 NOMOR 59",
+      "address": "Lokasi Maps (Tersimpan)",
+      "latitude": -6.1990634,
+      "longitude": 107.0098502,
       "phone": "6285710938401",
-      "joined": "2025-12-07T11:02:54.100Z",
-      "orders_count": 3
+      "joined": "2025-12-07T12:16:33.424Z",
+      "orders_count": 1
     }
   },
   "orders": [
@@ -176,6 +180,46 @@
       "status": "Diantar",
       "date": "2025-12-07T11:58:44.889Z",
       "courierId": "62895602416781"
+    },
+    {
+      "id": "ORD-32063978",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizqi",
+      "address": "Blok U1 No 7",
+      "item": "Tukar Aqua",
+      "amount": 2,
+      "total": 44000,
+      "status": "Selesai",
+      "date": "2025-12-07T12:08:40.639Z",
+      "courierId": "62895602416781"
+    },
+    {
+      "id": "ORD-8345427",
+      "customerId": "6285710938401@s.whatsapp.net",
+      "customerName": "Lilis",
+      "address": "Lokasi Maps (Tersimpan)",
+      "latitude": -6.1990634,
+      "longitude": 107.0098502,
+      "item": "Isi Ulang (Galon Le Mineral)",
+      "amount": 2,
+      "total": 10000,
+      "status": "Selesai",
+      "date": "2025-12-07T12:17:14.543Z",
+      "courierId": "62895602416781"
+    },
+    {
+      "id": "ORD-40101344",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizqi",
+      "address": "Blok U1 No 7",
+      "latitude": -6.1990431,
+      "longitude": 107.009803,
+      "item": "Isi Ulang (Galon Aqua)",
+      "amount": 2,
+      "total": 13000,
+      "status": "Diantar",
+      "date": "2025-12-07T12:26:41.014Z",
+      "courierId": "6289602792988"
     }
   ],
   "products": [
