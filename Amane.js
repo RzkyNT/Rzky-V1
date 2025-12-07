@@ -404,10 +404,19 @@ case "orderquantity": {
              name: "quick_reply",
              buttonParamsJson: JSON.stringify({
                  display_text: `${i} Buah`,
-                 id: `.orderconfirm ${idx} ${i}`
+                 id: `.selectpayment ${idx} ${i}`
              })
          });
     }
+    
+    // Add Cancel Button
+    buttons.push({
+        name: "quick_reply",
+        buttonParamsJson: JSON.stringify({
+            display_text: "❌ Batalkan",
+            id: ".batalorder_flow" 
+        })
+    });
 
     let msg = generateWAMessageFromContent(m.chat, {
         viewOnceMessage: {
@@ -422,8 +431,8 @@ case "orderquantity": {
                     nativeFlowMessage: {
                         buttons: buttons,
                          messageParamsJson: JSON.stringify({
-                             from_flow: true // sometimes needed for scrolling buttons
-                         }) // Baileys might not support scroling buttons natively in simple quick_reply array but let's try standard quick_reply
+                             from_flow: true 
+                         }) 
                     }
                 }
             }
@@ -434,8 +443,85 @@ case "orderquantity": {
 }
 break;
 
+case "selectpayment": {
+    const [idxStr, qtyStr] = text.split(" ");
+    const idx = parseInt(idxStr);
+    const qty = parseInt(qtyStr);
+    const crm = loadCrmData();
+    const product = crm.products[idx];
+    
+    if (!product) return m.reply("Produk tidak valid.");
+
+    let buttons = [
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "💵 COD (Bayar di Tempat)",
+                id: `.orderconfirm ${idx} ${qty} COD`
+            })
+        },
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "🏦 Transfer Bank",
+                id: `.orderconfirm ${idx} ${qty} Transfer`
+            })
+        },
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "💸 E-Wallet (Dana/OVO)",
+                id: `.orderconfirm ${idx} ${qty} E-Wallet`
+            })
+        },
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "❌ Batalkan",
+                id: ".batalorder_flow"
+            })
+        }
+    ];
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: `Konfirmasi Pesanan:\n\nItem: ${product.name}\nJumlah: ${qty} buah\nTotal: Rp${(product.price * qty).toLocaleString()}\n\nPilih Metode Pembayaran:` },
+                    footer: { text: "Depot Minhaqua" },
+                    nativeFlowMessage: {
+                        buttons: buttons,
+                         messageParamsJson: JSON.stringify({
+                             from_flow: true 
+                         }) 
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    
+    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+}
+break;
+
+case "batalorder_flow": {
+    m.reply("❌ Pesanan dibatalkan.");
+}
+break;
+
 case "orderconfirm": {
-    const [idxStr, amountStr] = text.split(" ");
+    // Expected text: idx qty paymentMethod
+    // Payment method can contain spaces (e.g. "Transfer Bank")
+    // Let's use split limit
+    const args = text.split(" ");
+    const idxStr = args[0];
+    const amountStr = args[1];
+    const paymentMethod = args.slice(2).join(" ") || "COD"; // Default COD if missing
+
     const amount = parseInt(amountStr);
     const idx = parseInt(idxStr);
     const crm = loadCrmData();
@@ -460,6 +546,7 @@ case "orderconfirm": {
         item: product.name,
         amount: amount,
         total: total,
+        paymentMethod: paymentMethod,
         status: "Pending",
         date: new Date().toISOString()
     };
@@ -468,19 +555,17 @@ case "orderconfirm": {
     crm.customers[m.sender].orders_count += 1;
     saveCrmData(crm);
     
-    m.reply(`✅ Pesanan Diterima!\nID: ${orderId}\nItem: ${amount}x ${product.name}\nTotal: Rp${total.toLocaleString()}\nAlamat: ${crm.customers[m.sender].address}\n\nMohon tunggu kurir kami akan segera mengirim pesanan Anda.`);
+    m.reply(`✅ Pesanan Diterima!\nID: ${orderId}\nItem: ${amount}x ${product.name}\nTotal: Rp${total.toLocaleString()}\nPembayaran: ${paymentMethod}\nAlamat: ${crm.customers[m.sender].address}\n\nMohon tunggu kurir kami akan segera mengirim pesanan Anda.`);
     
-    // Notify Owner and Couriers
+    // Notify Owner
     const ownerJid = global.owner + "@s.whatsapp.net";
-    const orderMsg = `🔔 *PESANAN BARU*\n\nDari: ${newOrder.customerName}\nItem: ${amount}x ${product.name}\nTotal: Rp${total.toLocaleString()}\nAlamat: ${newOrder.address}\nID: ${orderId}`;
-    
-    sock.sendMessage(ownerJid, { text: orderMsg });
+    sock.sendMessage(ownerJid, { text: `🔔 *PESANAN BARU*\n\nDari: ${newOrder.customerName}\nItem: ${amount}x ${product.name}\nTotal: Rp${total.toLocaleString()}\nPembayaran: ${paymentMethod}\nAlamat: ${newOrder.address}\nID: ${orderId}` });
     
     // Notify Couriers
     if (crm.couriers && crm.couriers.length > 0) {
-        crm.couriers.forEach(async courier => {
-            const courierJid = courier + "@s.whatsapp.net";
-            
+        crm.couriers.forEach(async (courierNum) => {
+            const courierJid = courierNum + "@s.whatsapp.net";
+            // Construct Interactive Button Message for Courier
             let btnMsg = generateWAMessageFromContent(courierJid, {
                 viewOnceMessage: {
                     message: {
@@ -489,7 +574,7 @@ case "orderconfirm": {
                             deviceListMetadataVersion: 2
                         },
                         interactiveMessage: {
-                            body: { text: orderMsg },
+                            body: { text: `🔔 *ORDER BARU MASUK*\n\nArea: ${newOrder.address}\nItem: ${newOrder.amount}x ${newOrder.item}\nTotal: Rp${newOrder.total.toLocaleString()}\nPembayaran: ${paymentMethod}\n\nSegera ambil antrian!` },
                             footer: { text: "Panel Depot Minhaqua" },
                             nativeFlowMessage: {
                                 buttons: [
@@ -879,7 +964,7 @@ case "manageorder": {
                     deviceListMetadataVersion: 2
                 },
                 interactiveMessage: {
-                    body: { text: `Detail Pesanan\n\nID: ${order.id}\nNama: ${order.customerName}\nAlamat: ${order.address}\nItem: ${order.amount}x ${order.item}\nTotal: Rp${order.total.toLocaleString()}\nStatus: *${order.status}*\nKurir: ${order.courierId || "-"}` },
+                    body: { text: `Detail Pesanan\n\nID: ${order.id}\nNama: ${order.customerName}\nAlamat: ${order.address}\nItem: ${order.amount}x ${order.item}\nTotal: Rp${order.total.toLocaleString()}\nPembayaran: ${order.paymentMethod || "-"}\nStatus: *${order.status}*\nKurir: ${order.courierId || "-"}` },
                     footer: { text: "Panel Depot Minhaqua" },
                     nativeFlowMessage: {
                          buttons: buttons,
