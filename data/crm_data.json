@@ -2,11 +2,11 @@
   "customers": {
     "62895602416781@s.whatsapp.net": {
       "id": "62895602416781@s.whatsapp.net",
-      "name": "Rizqi",
+      "name": "Rizki Ahsan",
       "address": "Blok U1 No 7",
       "phone": "62895602416781",
       "joined": "2025-12-07T09:44:09.485Z",
-      "orders_count": 12,
+      "orders_count": 13,
       "latitude": -6.1990431,
       "longitude": 107.009803
     },
@@ -220,6 +220,20 @@
       "status": "Diantar",
       "date": "2025-12-07T12:26:41.014Z",
       "courierId": "6289602792988"
+    },
+    {
+      "id": "ORD-32232246",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizki Ahsan",
+      "address": "Blok U1 No 7",
+      "latitude": -6.1990431,
+      "longitude": 107.009803,
+      "item": "Isi Ulang (Galon Aqua)",
+      "amount": 2,
+      "total": 13000,
+      "paymentMethod": "COD",
+      "status": "Pending",
+      "date": "2025-12-07T12:58:42.322Z"
     }
   ],
   "products": [

@@ -403,7 +403,7 @@ case "orderquantity": {
          buttons.push({
              name: "quick_reply",
              buttonParamsJson: JSON.stringify({
-                 display_text: `${i} Buah`,
+                 display_text: `${i} ${product.name}`,
                  id: `.selectpayment ${idx} ${i}`
              })
          });
@@ -491,7 +491,7 @@ case "selectpayment": {
                     deviceListMetadataVersion: 2
                 },
                 interactiveMessage: {
-                    body: { text: `Konfirmasi Pesanan:\n\nItem: ${product.name}\nJumlah: ${qty} buah\nTotal: Rp${(product.price * qty).toLocaleString()}\n\nPilih Metode Pembayaran:` },
+                    body: { text: `Konfirmasi Pesanan:\n\nJumlah: ${qty} ${product.name}\nTotal: Rp${(product.price * qty).toLocaleString()}\n\nPilih Metode Pembayaran:` },
                     footer: { text: "Depot Minhaqua" },
                     nativeFlowMessage: {
                         buttons: buttons,
