@@ -307,7 +307,8 @@ break;
 case "order":
 case "pesan": {
     const crm = loadCrmData();
-    if (!crm.customers[m.sender]) return m.reply(`Anda belum terdaftar. Silakan daftar dulu dengan perintah: *daftar*`);
+    // Allow unregistered execution
+    // if (!crm.customers[m.sender]) return m.reply(`Anda belum terdaftar...`);
 
     if (!text) {
         // Interactive Product List using Native Flow
@@ -470,8 +471,8 @@ case "addtocart": {
         {
             name: "quick_reply",
             buttonParamsJson: JSON.stringify({
-                display_text: "✅ Checkout (Selesai)",
-                id: `.cart`
+                display_text: "✅ Checkout Selesai",
+                id: `.orderconfirm COD`
             })
         },
         {
@@ -528,8 +529,8 @@ case "cart": {
         {
             name: "quick_reply",
             buttonParamsJson: JSON.stringify({
-                display_text: "💵 Pilih Pembayaran",
-                id: `.selectpayment`
+                display_text: "✅ Checkout Selesai",
+                id: `.orderconfirm COD`
             })
         },
         {
@@ -586,42 +587,28 @@ break;
 case "selectpayment": {
     if (!global.cart || !global.cart[m.sender] || global.cart[m.sender].length === 0) return m.reply("Keranjang kosong. Ketik .order dulu.");
     
+    // Bypass selection, go straight to COD confirm
+    // We manually trigger the next step logic or just ask them to click confirm if we want a 2-step verify.
+    // But user wants to remove choice.
+    
+    // Let's just return the same as triggering orderconfirm
+    // Since we can't easily jump to another case without function extraction, we'll instruct them or redirect.
+    // Actually, we can just output a button to confirm just to be safe, but only ONE button.
+    
     const cart = global.cart[m.sender];
     const total = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
-    const crm = loadCrmData();
-
+    
     let buttons = [
         {
             name: "quick_reply",
             buttonParamsJson: JSON.stringify({
-                display_text: "💵 COD (Bayar di Tempat)",
+                display_text: "✅ Konfirmasi Pesanan (COD)",
                 id: `.orderconfirm COD`
-            })
-        },
-        {
-            name: "quick_reply",
-            buttonParamsJson: JSON.stringify({
-                display_text: "🏦 Transfer Bank",
-                id: `.orderconfirm Transfer`
-            })
-        },
-        {
-            name: "quick_reply",
-            buttonParamsJson: JSON.stringify({
-                display_text: "💸 E-Wallet (Dana/OVO)",
-                id: `.orderconfirm E-Wallet`
-            })
-        },
-        {
-            name: "quick_reply",
-            buttonParamsJson: JSON.stringify({
-                display_text: "❌ Batalkan",
-                id: ".batalorder_flow"
             })
         }
     ];
 
-    let msg = generateWAMessageFromContent(m.chat, {
+     let msg = generateWAMessageFromContent(m.chat, {
         viewOnceMessage: {
             message: {
                 messageContextInfo: {
@@ -629,7 +616,7 @@ case "selectpayment": {
                     deviceListMetadataVersion: 2
                 },
                 interactiveMessage: {
-                    body: { text: `Konfirmasi Pesanan:\n\nTotal Item: ${cart.length} jenis\nTotal Bayar: Rp${total.toLocaleString()}\n\nPilih Metode Pembayaran:` },
+                    body: { text: `Total Bayar: Rp${total.toLocaleString()}\nMetode Pembayaran: COD (Bayar di Tempat)\n\nSilakan konfirmasi pesanan Anda.` },
                     footer: { text: "Depot Minhaqua" },
                     nativeFlowMessage: {
                         buttons: buttons,
@@ -657,17 +644,32 @@ case "orderconfirm": {
     
     // Construct Item Details String
     let itemDetails = cart.map(i => `${i.qty}x ${i.name}`).join(", ");
-    let fullOrderSummary = cart.map(i => `- ${i.qty}x ${i.name} (@${i.price})`).join("\n");
+    let fullOrderSummary = cart.map(i => `- ${i.qty}x ${i.name} (@Rp${i.price})`).join("\n");
 
     const orderId = generateOrderId();
     
+    // GUEST CHECK: If not registered, redirect to Guest Location Input
+    if (!crm.customers[m.sender]) {
+         if (!global.registrationSession) global.registrationSession = {};
+         global.registrationSession[m.sender] = { 
+             step: "WAITING_LOCATION_GUEST",
+             pendingOrder: {
+                 cart: cart,
+                 total: total,
+                 paymentMethod: paymentMethod
+             }
+         };
+         
+         return m.reply("📍 Karena Anda belum terdaftar, mohon kirimkan *Share Location* (Lokasi Peta) Anda untuk keperluan pengantaran.\n\nKlik tombol Attachment (Klip Kertas) -> Lokasi -> Kirim Lokasi Anda Saat Ini.");
+    }
+
     const newOrder = {
         id: orderId,
         customerId: m.sender,
         customerName: crm.customers[m.sender].name,
-        address: crm.customers[m.sender].address,
-        latitude: crm.customers[m.sender].latitude, 
-        longitude: crm.customers[m.sender].longitude,
+        address: crm.customers[m.sender] ? crm.customers[m.sender].address : "-",
+        latitude: crm.customers[m.sender] ? crm.customers[m.sender].latitude : null, 
+        longitude: crm.customers[m.sender] ? crm.customers[m.sender].longitude : null,
         item: itemDetails, 
         items: cart, 
         amount: cart.reduce((acc, i) => acc + i.qty, 0), 
@@ -963,7 +965,7 @@ case "statusdetail": {
              name: "cta_url", // Just visual, cannot cancel
              buttonParamsJson: JSON.stringify({
                  display_text: "Hubungi Admin",
-                 url: `https://wa.me/${global.owner}`
+                 url: `https://wa.me/${courierId}`
              })
          });
     }
@@ -976,7 +978,7 @@ case "statusdetail": {
                     deviceListMetadataVersion: 2
                 },
                 interactiveMessage: {
-                    body: { text: `📋 *DETAIL PESANAN*\n\n🆔 ID: ${order.id}\n📦 Item: ${order.amount}x ${order.item}\n💰 Total: Rp${order.total.toLocaleString()}\n🚚 Status: *${order.status}*\n📅 Tanggal: ${order.date.split('T')[0]}\n📍 Alamat: ${order.address}` },
+                    body: { text: `📋 *DETAIL PESANAN*\n\n🆔 ID: ${order.id}\n📦 Item: ${order.item}\n💰 Total: Rp${order.total.toLocaleString()}\n🚚 Status: *${order.status}*\n📅 Tanggal: ${order.date.split('T')[0]}\n📍 Alamat: ${order.address}` },
                     footer: { text: "Depot Minhaqua" },
                     nativeFlowMessage: {
                          buttons: buttons,
@@ -1106,7 +1108,7 @@ case "manageorder": {
                     deviceListMetadataVersion: 2
                 },
                 interactiveMessage: {
-                    body: { text: `Detail Pesanan\n\nID: ${order.id}\nNama: ${order.customerName}\nAlamat: ${order.address}\nItem: ${order.amount}x ${order.item}\nTotal: Rp${order.total.toLocaleString()}\nPembayaran: ${order.paymentMethod || "-"}\nStatus: *${order.status}*\nKurir: ${order.courierId || "-"}` },
+                    body: { text: `Detail Pesanan\n\nID: ${order.id}\nNama: ${order.customerName}\nAlamat: ${order.address}\nItem: ${order.item}\nTotal: Rp${order.total.toLocaleString()}\nPembayaran: ${order.paymentMethod || "-"}\nStatus: *${order.status}*\nKurir: ${order.courierId || "-"}` },
                     footer: { text: "Panel Depot Minhaqua" },
                     nativeFlowMessage: {
                          buttons: buttons,
@@ -1156,7 +1158,7 @@ case "antar": { // Renamed concept but keeping legacy alias for now or redirecti
                     deviceListMetadataVersion: 2
                 },
                 interactiveMessage: {
-                    body: { text: `✅ Berhasil mengambil antrian pengantaran untuk Order ${order.id}.\n\n${order.amount}x ${order.item} \n\nSegera antar ke: ${order.address}` },
+                    body: { text: `✅ Berhasil mengambil antrian pengantaran untuk Order ${order.id}.\n\n${order.item} \n\nSegera antar ke: ${order.address}` },
                     footer: { text: "Panel Kurir" },
                     nativeFlowMessage: {
                         buttons: [
@@ -1183,10 +1185,10 @@ case "antar": { // Renamed concept but keeping legacy alias for now or redirecti
     }, { userJid: m.sender, quoted: m });
     
     sock.relayMessage(m.chat, btnMsg.message, { messageId: btnMsg.key.id });
-    sock.sendMessage(order.customerId, { text: `🚚 Pesanan Anda ${order.amount}x ${order.item} sedang diantar oleh kurir ${m.pushName || "kami"} wa.me/${order.courierId}!` });
+    sock.sendMessage(order.customerId, { text: `🚚 Pesanan Anda ${order.item} sedang diantar oleh kurir ${m.pushName || "kami"} wa.me/${order.courierId}!` });
     
     if (isCourier) {
-        sock.sendMessage(global.owner + "@s.whatsapp.net", { text: `ℹ️ Info: Kurir ${m.pushName || m.sender.split('@')[0]} mengambil antrian pesanan ${order.id} untuk ${order.customerName} dengan pemesanan ${order.amount}x ${order.item}.` });
+        sock.sendMessage(global.owner + "@s.whatsapp.net", { text: `ℹ️ Info: Kurir ${m.pushName || m.sender.split('@')[0]} mengambil antrian pesanan ${order.id} untuk ${order.customerName} dengan pemesanan ${order.item}.` });
     }
 }
 break;
@@ -1333,10 +1335,41 @@ case "rateorder": {
     order.rating = score;
     saveCrmData(crm);
     
-    m.reply(`Terima kasih atas penilaian ${score} bintangnya! ⭐\nKami akan terus meningkatkan pelayanan kami.`);
-    
     // Notify Owner
     sock.sendMessage(global.owner + "@s.whatsapp.net", { text: `⭐ *RATING DITERIMA*\n\nOrder: ${orderId}\nPelanggan: ${order.customerName}\nNilai: ${score}/5` });
+
+    let buttons = [
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "🛒 Order Lagi",
+                id: ".order"
+            })
+        }
+    ];
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: `Terima kasih atas penilaian ${score} bintangnya! ⭐\nKami akan terus meningkatkan pelayanan kami.` },
+                    footer: { text: "Depot Minhaqua" },
+                    nativeFlowMessage: {
+                        buttons: buttons,
+                        messageParamsJson: JSON.stringify({
+                             from_flow: true 
+                        })
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    
+    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
 }
 break;
 
@@ -2442,9 +2475,78 @@ case "openai": case "ai": {
         global.db.settings.ai_chat = false;
         return m.reply("🔴 Fitur AI Chatbot telah dinonaktifkan.");
     }
-    if (!text) return m.reply(`*Contoh :* ${cmd} jelaskan apa itu javascript`);
-    const result = await aiChat("", text, "openai/gpt-oss-120b")
-    return m.reply(result)
+    if (!text) return m.reply(`*Contoh :* ${cmd} info pesanan saya`);
+    
+    const systemPrompt = "Anda adalah asisten AI untuk Depot Minhaqua. \n" +
+        "Jika user bertanya soal status pesanan atau cek order, tambahkan teks '[BUTTON:CEK_ORDER]' di akhir respon Anda.\n" +
+        "Jika user ingin membeli/memesan galon/air, tambahkan '[BUTTON:ORDER]' di akhir respon.\n" +
+        "Jika user minta daftar harga/produk, tambahkan '[BUTTON:LIST_PRODUK]' di akhir respon.\n" +
+        "Jawablah dengan sopan dan singkat.";
+
+    const result = await aiChat(systemPrompt, text, "llama3-8b-8192"); // Menggunakan model yang lebih cepat/stabil di Groq jika perlu, atau tetap gpt-oss-120b jika valid
+    
+    // Parse response for buttons
+    let finalBody = result;
+    let buttons = [];
+
+    if (result.includes("[BUTTON:CEK_ORDER]")) {
+        finalBody = finalBody.replace("[BUTTON:CEK_ORDER]", "").trim();
+        buttons.push({
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "🔍 Cek Pesanan",
+                id: ".cekorder"
+            })
+        });
+    }
+    
+    if (result.includes("[BUTTON:ORDER]")) {
+        finalBody = finalBody.replace("[BUTTON:ORDER]", "").trim();
+        buttons.push({
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "🛒 Pesan Sekarang",
+                id: ".order"
+            })
+        });
+    }
+
+    if (result.includes("[BUTTON:LIST_PRODUK]")) {
+        finalBody = finalBody.replace("[BUTTON:LIST_PRODUK]", "").trim();
+        buttons.push({
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "📋 Daftar Produk",
+                id: ".listproduk"
+            })
+        });
+    }
+
+    if (buttons.length > 0) {
+        let msg = generateWAMessageFromContent(m.chat, {
+            viewOnceMessage: {
+                message: {
+                    messageContextInfo: {
+                        deviceListMetadata: {},
+                        deviceListMetadataVersion: 2
+                    },
+                    interactiveMessage: {
+                        body: { text: finalBody },
+                        footer: { text: "Depot Minhaqua AI" },
+                        nativeFlowMessage: {
+                            buttons: buttons,
+                            messageParamsJson: JSON.stringify({
+                                from_flow: true 
+                            })
+                        }
+                    }
+                }
+            }
+        }, { userJid: m.sender, quoted: m });
+        return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+    }
+
+    return m.reply(finalBody);
 }
 break
 case "play": case "playyt": case "ytplay": {
@@ -6379,24 +6481,143 @@ if (global.registrationSession && global.registrationSession[m.sender]) {
         saveCrmData(crm);
         
         delete global.registrationSession[m.sender];
-        let buttons = [
-        {
-            name: "quick_reply",
-            buttonParamsJson: JSON.stringify({
-                display_text: "Order Pesanan",
-                id: `.order`
-            })
-        }];
-        await m.reply("Silakan pilih opsi di bawah ini", buttons);
+            return m.reply(`✅ Pendaftaran Berhasil!\nNama: ${name}\nAlamat: ${address}\n\nSilakan ketik order untuk melanjutkan pemesanan.`);
+    } else if (session.step === "WAITING_LOCATION_GUEST") {
+         if (m.type === 'locationMessage' || (m.msg && m.msg.degreesLatitude)) {
+            session.latitude = m.msg.degreesLatitude;
+            session.longitude = m.msg.degreesLongitude;
+            session.step = "WAITING_ADDRESS_GUEST";
+            return m.reply(`✅ Lokasi diterima.\n\nSekarang mohon ketik *Alamat Lengkap* (Nama Jalan, Blok, Nomor Rumah) untuk pengantaran pesanan.`);
+        } else {
+             if (m.body) {
+                 if (m.body.toLowerCase() === 'lanjut' || m.body === '.') {
+                      session.latitude = null;
+                      session.longitude = null;
+                      session.step = "WAITING_ADDRESS_GUEST";
+                      return m.reply("⚠️ Lokasi dilewati.\n\nSekarang mohon ketik *Alamat Lengkap* (Nama Jalan, Blok, Nomor Rumah) untuk pengantaran pesanan.");
+                 }
+                 return m.reply("Mohon kirim *Share Location* (Peta) agar kurir kami mudah menemukan lokasi Anda.\n\nBalas '.' jika terpaksa tidak bisa kirim lokasi.");
+             }
+        }
+    } else if (session.step === "WAITING_ADDRESS_GUEST") {
+         if (!m.body) return m.reply("Mohon kirim detail alamat blok/rumah Anda.");
+         const address = m.body;
+         const crm = loadCrmData();
+         
+         // Auto-Register Guest
+         if (!crm.customers[m.sender]) {
+             crm.customers[m.sender] = {
+                id: m.sender,
+                name: m.pushName || "Guest User",
+                address: address,
+                latitude: session.latitude,
+                longitude: session.longitude,
+                phone: m.sender.split("@")[0],
+                joined: new Date().toISOString(),
+                orders_count: 0
+             };
+             saveCrmData(crm);
+         } else {
+             // Update if exists (rare case here)
+             crm.customers[m.sender].address = address;
+             if (session.latitude) {
+                 crm.customers[m.sender].latitude = session.latitude;
+                 crm.customers[m.sender].longitude = session.longitude;
+             }
+             saveCrmData(crm);
+         }
+         
+         // Restore Pending Order
+         if (session.pendingOrder) {
+             const { cart, total, paymentMethod } = session.pendingOrder;
+             const orderId = generateOrderId();
+             
+             // Item Details
+             let itemDetails = cart.map(i => `${i.qty}x ${i.name}`).join(", ");
+             let fullOrderSummary = cart.map(i => `- ${i.qty}x ${i.name} (@Rp${i.price})`).join("\n");
+             
+             const newOrder = {
+                id: orderId,
+                customerId: m.sender,
+                customerName: crm.customers[m.sender].name,
+                address: crm.customers[m.sender].address,
+                latitude: crm.customers[m.sender].latitude,
+                longitude: crm.customers[m.sender].longitude,
+                item: itemDetails,
+                items: cart,
+                amount: cart.reduce((acc, i) => acc + i.qty, 0),
+                total: total,
+                paymentMethod: paymentMethod,
+                status: "Menunggu",
+                date: new Date().toISOString()
+            };
+            
+            crm.orders.push(newOrder);
+            crm.customers[m.sender].orders_count += 1;
+            saveCrmData(crm);
+            
+            // Clear Sessions
+            delete global.cart[m.sender];
+            delete global.registrationSession[m.sender];
+            
+            let paymentMsg = "💵 Siapkan uang pas saat kurir datang (COD).";
+            
+            m.reply(`✅ Pesanan Berhasil Dibuat!\nID: ${orderId}\n\n*Detail:*\n${fullOrderSummary}\n\nTotal: Rp${total.toLocaleString()}\nAlamat: ${address}\n${paymentMsg}\n\nMohon tunggu kurir kami.`);
+            
+             // Notify Owner
+            const ownerJid = global.owner + "@s.whatsapp.net";
+            sock.sendMessage(ownerJid, { text: `🔔 *PESANAN BARU (GUEST)*\n\nDari: ${newOrder.customerName}\n${fullOrderSummary}\n\nTotal: Rp${total.toLocaleString()}\nMetode: ${paymentMethod}\nAlamat: ${newOrder.address}\nID: ${orderId}` });
+            
+            // Notify Couriers
+            if (crm.couriers && crm.couriers.length > 0) {
+                crm.couriers.forEach(async (courierNum) => {
+                    const courierJid = courierNum + "@s.whatsapp.net";
+                    let btnMsg = generateWAMessageFromContent(courierJid, {
+                        viewOnceMessage: {
+                            message: {
+                                messageContextInfo: {
+                                    deviceListMetadata: {},
+                                    deviceListMetadataVersion: 2
+                                },
+                                interactiveMessage: {
+                                    body: { text: `🔔 *ORDER BARU MASUK*\n\nArea: ${newOrder.address}\nItem: ${itemDetails}\nTotal: Rp${newOrder.total.toLocaleString()}\nPembayaran: ${paymentMethod}\n\nSegera ambil antrian!` },
+                                    footer: { text: "Panel Depot Minhaqua" },
+                                    nativeFlowMessage: {
+                                        buttons: [
+                                            {
+                                                name: "quick_reply",
+                                                buttonParamsJson: JSON.stringify({
+                                                    display_text: "📦 Ambil Antrian",
+                                                    id: `.ambilantrian ${orderId}`
+                                                })
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }, { userJid: courierJid });
+                    
+                    await sock.relayMessage(courierJid, btnMsg.message, { messageId: btnMsg.key.id });
+                });
+            }
+         } else {
+             m.reply("Data tersimpan, tapi data pesanan hilang. Silakan order ulang.");
+             delete global.registrationSession[m.sender];
+         }
     }
 }
 
 // AI & Responder ( Moved from top to prevent double response )
 if (m.body) {
-    const responder = db.settings.respon.find(v => v.id.toLowerCase() == m.body.toLowerCase())
-    if (responder && responder.response) {
-        await m.reply(responder.response)
-    } else if (!m.isGroup && global.db.settings.ai_chat) {
+    // Skip AI if user is in registration session
+    if (global.registrationSession && global.registrationSession[m.sender]) {
+        // Do nothing, let registration handler process it
+    } else {
+        const responder = db.settings.respon.find(v => v.id.toLowerCase() == m.body.toLowerCase())
+        if (responder && responder.response) {
+            await m.reply(responder.response)
+        } else if (!m.isGroup && global.db.settings.ai_chat) {
         try {
             const lowerText = m.body.toLowerCase();
             const crm = loadCrmData();
@@ -6409,11 +6630,11 @@ FITUR DAN PANDUAN:
    - Ketik ".order" atau ".pesan".
    - Pilih produk dari daftar.
    - Pilih jumlah (1-10 galon).
-   - Pilih pembayaran: COD (Bayar di Tempat), Transfer, atau E-Wallet.
    - Kurir akan menerima pesanan dan mengantar ke lokasi yang terdaftar.
+   - Pembayaran dilakukan di tempat (COD).
 
 2. **Pendaftaran (.daftar)**:
-   - Wajib bagi pelanggan baru.
+   - Wajib bagi pelanggan baru (opsional, bisa order langsung sebagai tamu).
    - Ketik ".daftar".
    - Masukkan Nama.
    - Kirim Share Location (Peta) agar kurir tidak nyasar.
@@ -6450,14 +6671,81 @@ INSTRUKSI KHUSUS:
 - Selalu gunakan format teks WhatsApp (seperti *tebal*, _miring_) untuk menekankan kata penting.
 - Jangan berhalusinasi fitur yang tidak ada (hanya fitur di atas yang tersedia).
 - Jika ada keluhan teknis berat, arahkan hubungi Owner.
+- Jika user bertanya soal status pesanan atau cek order, tambahkan teks '[BUTTON:CEK_ORDER]' di akhir respon Anda.
+- Jika user ingin membeli/memesan galon/air, tambahkan '[BUTTON:ORDER]' di akhir respon.
+- Jika user minta daftar harga/produk, tambahkan '[BUTTON:LIST_PRODUK]' di akhir respon.
 
 Pertanyaan User: "${m.body}"
 Jawablah sebagai MinBot:`;
 
-            const reply = await geminiChat(prompt);
-            await m.reply(reply);
+            const result = await geminiChat(prompt);
+            
+            // Parse response for buttons
+            let finalBody = result;
+            let buttons = [];
+
+            if (result.includes("[BUTTON:CEK_ORDER]")) {
+                finalBody = finalBody.replace("[BUTTON:CEK_ORDER]", "").trim();
+                buttons.push({
+                    name: "quick_reply",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: "🔍 Cek Pesanan",
+                        id: ".cekorder"
+                    })
+                });
+            }
+            
+            if (result.includes("[BUTTON:ORDER]")) {
+                finalBody = finalBody.replace("[BUTTON:ORDER]", "").trim();
+                buttons.push({
+                    name: "quick_reply",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: "🛒 Pesan Sekarang",
+                        id: ".order"
+                    })
+                });
+            }
+
+            if (result.includes("[BUTTON:LIST_PRODUK]")) {
+                finalBody = finalBody.replace("[BUTTON:LIST_PRODUK]", "").trim();
+                buttons.push({
+                    name: "quick_reply",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: "📋 Daftar Produk",
+                        id: ".listproduk"
+                    })
+                });
+            }
+
+            if (buttons.length > 0) {
+                let msg = generateWAMessageFromContent(m.chat, {
+                    viewOnceMessage: {
+                        message: {
+                            messageContextInfo: {
+                                deviceListMetadata: {},
+                                deviceListMetadataVersion: 2
+                            },
+                            interactiveMessage: {
+                                body: { text: finalBody },
+                                footer: { text: "Depot Minhaqua AI" },
+                                nativeFlowMessage: {
+                                    buttons: buttons,
+                                    messageParamsJson: JSON.stringify({
+                                        from_flow: true 
+                                    })
+                                }
+                            }
+                        }
+                    }
+                }, { userJid: m.sender, quoted: m });
+                await sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+            } else {
+                await m.reply(finalBody);
+            }
+
         } catch (e) {
             console.log("Gemini Chat Error: " + e);
+        }
         }
     }
 }
