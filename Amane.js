@@ -14,38 +14,11 @@ const tiktok = require("./storage/tiktok.js");
 const remini = require("./storage/remini.js");
 const youtube = require("./storage/youtube.js");
 const aiChat = require("./storage/openai.js");
+const geminiChat = require("./storage/gemini.js");
+
 const { exec, spawn, execSync } = require('child_process');
 const { prepareWAMessageMedia, generateWAMessageFromContent } = require("@whiskeysockets/baileys");
 const LoadDataBase = require("./storage/LoadDatabase.js");
-
-// Safe wrapper for prepareWAMessageMedia to avoid hard failures when remote hosts return 403/deny
-async function safePrepareWAMessageMedia(media, options = {}) {
-    try {
-        return await prepareWAMessageMedia(media, options);
-    } catch (err) {
-        console.warn('safePrepareWAMessageMedia: remote media fetch failed ->', err && err.message ? err.message : err);
-        try {
-            // if there's a local fallback image, use it
-            const fallbackPath = './storage/fallback.jpg';
-            if (fs.existsSync(fallbackPath)) {
-                return await prepareWAMessageMedia({ image: fs.readFileSync(fallbackPath) }, options);
-            }
-            // try global.thumbnail2 first, then global.thumbnail as last resort
-            if (global && global.thumbnail2) {
-                try {
-                    return await prepareWAMessageMedia({ image: { url: global.thumbnail2 } }, options);
-                } catch (_) {}
-            }
-            if (global && global.thumbnail) {
-                return await prepareWAMessageMedia({ image: { url: global.thumbnail } }, options);
-            }
-        } catch (e) {
-            console.error('safePrepareWAMessageMedia: fallback also failed ->', e && e.message ? e.message : e);
-        }
-        // return empty object so callers that spread result won't crash
-        return {};
-    }
-}
 
 module.exports = async (m, sock) => {
 try {
@@ -56,8 +29,8 @@ const mime = quoted?.msg?.mimetype || quoted?.mimetype || null
 const args = m.body.trim().split(/ +/).slice(1)
 const qmsg = (m.quoted || m)
 const text = q = args.join(" ")
-const command = isCmd ? m.body.slice(m.prefix.length).trim().split(' ').shift().toLowerCase() : ''
-const cmd = m.prefix + command
+const command = m.body ? (m.body.startsWith(m.prefix) ? m.body.slice(m.prefix.length).trim().split(' ').shift().toLowerCase() : m.body.trim().split(' ').shift().toLowerCase()) : ''
+const cmd = isCmd ? m.prefix + command : command
 const botNumber = await sock.user.id.split(":")[0]+"@s.whatsapp.net"
 const isOwner = global.owner+"@s.whatsapp.net" == m.sender || m.sender == botNumber || db.settings.developer.includes(m.sender)
 const isReseller = db.settings.reseller.includes(m.sender)
@@ -78,12 +51,7 @@ if (isCmd) {
 console.log(chalk.red("☎ Pengirim ⪼"), chalk.green(m.chat) + "\n" + chalk.red("💌 Pesan ⪼"), chalk.green(cmd) + "\n")
 }
 
-if (!isCmd && m.body) {
-const responder = db.settings.respon.find(v => v.id.toLowerCase() == m.body.toLowerCase())
-if (responder && responder.response) {
-await m.reply(responder.response)
-}
-}
+
 
 //=============================================//
 
@@ -207,6 +175,30 @@ function parseInterval(str) {
     return val * (map[full[unit] || unit] || 0);
 }
 //=============================================//
+// CRM AIR ISI ULANG HELPERS
+const crmFile = "./data/crm_data.json";
+
+function loadCrmData() {
+    try {
+        if (!fs.existsSync(crmFile)) {
+             const initData = { customers: {}, orders: [], products: [{ name: "Galon Isi Ulang", price: 5000 }, { name: "Galon Baru + Isi", price: 35000 }] };
+             fs.writeFileSync(crmFile, JSON.stringify(initData, null, 2));
+             return initData;
+        }
+        return JSON.parse(fs.readFileSync(crmFile));
+    } catch (err) {
+        return { customers: {}, orders: [], products: [] };
+    }
+}
+
+function saveCrmData(data) {
+    fs.writeFileSync(crmFile, JSON.stringify(data, null, 2));
+}
+
+function generateOrderId() {
+    return 'ORD-' + Date.now().toString().slice(-6) + Math.floor(Math.random() * 100);
+}
+//=============================================//
 if (global.db.groups[m.chat]?.antilink === true) {
     const textMessage = m.text || ""
     const groupInviteLinkRegex = /(https?:\/\/)?(www\.)?chat\.whatsapp\.com\/[A-Za-z0-9]+(\?[^\s]*)?/gi
@@ -300,6 +292,215 @@ function saveGrupReseller() {
 //=============================================//
 
 switch (command) {
+// CRM COMMANDS
+case "daftar": {
+    const crm = loadCrmData();
+    if (crm.customers[m.sender]) return m.reply(`Anda sudah terdaftar sebagai: ${crm.customers[m.sender].name}`);
+    if (!text) return m.reply(`Silakan mendaftar dengan format:\n${cmd} Nama | Alamat\n\nContoh: ${cmd} Budi | Jl. Mawar No 1`);
+    
+    const [nama, alamat] = text.split("|").map(x => x.trim());
+    if (!nama || !alamat) return m.reply("Format salah. Mohon gunakan format: Nama | Alamat");
+    
+    crm.customers[m.sender] = {
+        id: m.sender,
+        name: nama,
+        address: alamat,
+        phone: m.sender.split('@')[0],
+        joined: new Date().toISOString(),
+        orders_count: 0
+    };
+    saveCrmData(crm);
+    m.reply(`✅ Terima kasih, ${nama}! Pendaftaran berhasil.\nAnda sekarang bisa memesan air galon dengan perintah .order`);
+    }
+    break;
+
+case "order":
+case "pesan": {
+    const crm = loadCrmData();
+    if (!crm.customers[m.sender]) return m.reply(`Anda belum terdaftar. Silakan daftar dulu dengan perintah:\n.daftar Nama | Alamat`);
+    
+    if (!text) {
+        let list = `📋 *DAFTAR PRODUK*\n`;
+        crm.products.forEach((p, i) => {
+            list += `${i+1}. ${p.name} - Rp${p.price.toLocaleString()}\n`;
+        });
+        list += `\nCara pesan:\n${cmd} <jumlah> <nama_produk/nomor_produk>\nContoh: ${cmd} 2 Galon Isi Ulang`;
+        return m.reply(list);
+    }
+    
+    let amount = parseInt(text.split(" ")[0]);
+    if (isNaN(amount) || amount < 1) return m.reply("Jumlah pesanan tidak valid.");
+    
+    let prodName = text.substring(text.indexOf(" ") + 1).trim();
+    let product = crm.products.find(p => p.name.toLowerCase().includes(prodName.toLowerCase()));
+    
+    // Support order by index (e.g. order 2 1)
+    if (!product && !isNaN(parseInt(prodName))) {
+        let idx = parseInt(prodName) - 1;
+        if (crm.products[idx]) product = crm.products[idx];
+    }
+    
+    if (!product) return m.reply("Produk tidak ditemukan. Cek daftar produk dengan kirim .order tanpa argumen.");
+    
+    const total = amount * product.price;
+    const orderId = generateOrderId();
+    
+    const newOrder = {
+        id: orderId,
+        customerId: m.sender,
+        customerName: crm.customers[m.sender].name,
+        address: crm.customers[m.sender].address,
+        item: product.name,
+        amount: amount,
+        total: total,
+        status: "Pending",
+        date: new Date().toISOString()
+    };
+    
+    crm.orders.push(newOrder);
+    crm.customers[m.sender].orders_count += 1;
+    saveCrmData(crm);
+    
+    m.reply(`✅ Pesanan Diterima!\nID: ${orderId}\nItem: ${amount}x ${product.name}\nTotal: Rp${total.toLocaleString()}\nAlamat: ${crm.customers[m.sender].address}\n\nMohon tunggu kurir kami akan segera mengirim pesanan Anda.`);
+    
+    // Notify Owner
+    const ownerJid = global.owner + "@s.whatsapp.net";
+    sock.sendMessage(ownerJid, { text: `🔔 *PESANAN BARU*\n\nDari: ${newOrder.customerName}\nItem: ${amount}x ${product.name}\nTotal: Rp${total.toLocaleString()}\nAlamat: ${newOrder.address}\nID: ${orderId}` });
+    }
+    break;
+
+case "addproduk": {
+    if (!isOwner) return m.reply(mess.owner);
+    if (!text) return m.reply(`Format: ${cmd} Nama Produk | Harga\nContoh: ${cmd} Galon Cuci | 3000`);
+    
+    const [name, price] = text.split("|").map(x => x.trim());
+    if (!name || isNaN(parseInt(price))) return m.reply("Format salah. Harga harus angka.");
+    
+    const crm = loadCrmData();
+    crm.products.push({ name, price: parseInt(price) });
+    saveCrmData(crm);
+    m.reply(`✅ Produk berhasil ditambahkan: ${name} - Rp${parseInt(price).toLocaleString()}`);
+    }
+    break;
+
+case "delproduk": {
+    if (!isOwner) return m.reply(mess.owner);
+    if (!text) return m.reply(`Masukkan nama produk yang ingin dihapus. Cek nama di .listproduk`);
+    
+    const crm = loadCrmData();
+    const idx = crm.products.findIndex(p => p.name.toLowerCase() === text.trim().toLowerCase());
+    
+    if (idx === -1) return m.reply("❌ Produk tidak ditemukan.");
+    
+    const deleted = crm.products.splice(idx, 1);
+    saveCrmData(crm);
+    m.reply(`✅ Produk berhasil dihapus: ${deleted[0].name}`);
+    }
+    break;
+
+case "listproduk":
+case "produk": 
+case "harga": {
+    const crm = loadCrmData();
+    let list = `💧 *DAFTAR HARGA AIR ISI ULANG*\n\n`;
+    crm.products.forEach((p, i) => {
+        list += `${i+1}. ${p.name} : Rp${p.price.toLocaleString()}\n`;
+    });
+    list += `\nGunakan command .order untuk memesan.`;
+    m.reply(list);
+    }
+    break;
+
+case "cekorder":
+case "statusorder": {
+    const crm = loadCrmData();
+    const myOrders = crm.orders.filter(o => o.customerId === m.sender && (o.status === "Pending" || o.status === "Diantar"));
+    
+    if (myOrders.length === 0) return m.reply("Anda tidak memiliki pesanan aktif saat ini.");
+    
+    let cek = `🔍 *STATUS PESANAN ANDA*\n`;
+    myOrders.forEach(o => {
+        cek += `\n🆔 ID: ${o.id}\n📦 Item: ${o.amount}x ${o.item}\n💰 Total: Rp${o.total.toLocaleString()}\n🚚 Status: *${o.status}*\n📅 Tgl: ${o.date.split('T')[0]}\n`;
+    });
+    m.reply(cek);
+    }
+    break;
+
+case "batalorder": {
+    if (!text) return m.reply(`Masukkan ID Order yang ingin dibatalkan. Contoh: ${cmd} ORD-123456`);
+    const crm = loadCrmData();
+    const orderIdx = crm.orders.findIndex(o => o.id === text.trim() && o.customerId === m.sender);
+    
+    if (orderIdx === -1) return m.reply("Pesanan tidak ditemukan atau bukan milik Anda.");
+    if (crm.orders[orderIdx].status !== "Pending") return m.reply("Pesanan tidak dapat dibatalkan karena sudah diproses/selesai.");
+    
+    crm.orders[orderIdx].status = "Dibatalkan";
+    saveCrmData(crm);
+    m.reply("✅ Pesanan berhasil dibatalkan.");
+    }
+    break;
+
+// === ADMIN CRM COMMANDS ===
+case "listorder": {
+    if (!isOwner && !isReseller) return m.reply(mess.owner); // Reseller dianggap staff/admin
+    const crm = loadCrmData();
+    const activeOrders = crm.orders.filter(o => o.status === "Pending" || o.status === "Diantar");
+    
+    if (activeOrders.length === 0) return m.reply("Tidak ada pesanan aktif.");
+    
+    let list = `📋 *DAFTAR PESANAN AKTIF*\n`;
+    activeOrders.forEach(o => {
+        list += `\n🆔 ID: ${o.id}\n👤 Nama: ${o.customerName}\n📦 Item: ${o.amount}x ${o.item}\n📍 Alamat: ${o.address}\n🚚 Status: *${o.status}*\n`;
+    });
+    m.reply(list);
+    }
+    break;
+
+case "antar": {
+    if (!isOwner && !isReseller) return m.reply(mess.owner);
+    if (!text) return m.reply(`Masukkan ID Order. Contoh: ${cmd} ORD-123456`);
+    const crm = loadCrmData();
+    const order = crm.orders.find(o => o.id === text.trim());
+    
+    if (!order) return m.reply("Order tidak ditemukan.");
+    
+    order.status = "Diantar";
+    saveCrmData(crm);
+    m.reply(`✅ Order ${order.id} status diubah menjadi *Diantar*.`);
+    sock.sendMessage(order.customerId, { text: `🚚 Pesanan Anda ${order.id} sedang diantar ke lokasi!` });
+    }
+    break;
+
+case "selesai": {
+    if (!isOwner && !isReseller) return m.reply(mess.owner);
+    if (!text) return m.reply(`Masukkan ID Order. Contoh: ${cmd} ORD-123456`);
+    const crm = loadCrmData();
+    const order = crm.orders.find(o => o.id === text.trim());
+    
+    if (!order) return m.reply("Order tidak ditemukan.");
+    
+    order.status = "Selesai";
+    saveCrmData(crm);
+    m.reply(`✅ Order ${order.id} status diubah menjadi *Selesai*.`);
+    sock.sendMessage(order.customerId, { text: `✅ Pesanan Anda ${order.id} telah selesai diantar. Terima kasih!` });
+    }
+    break;
+
+case "listcust": {
+    if (!isOwner) return m.reply(mess.owner);
+    const crm = loadCrmData();
+    const custs = Object.values(crm.customers);
+    
+    if (custs.length === 0) return m.reply("Belum ada pelanggan terdaftar.");
+    
+    let txt = `👥 *DATA PELANGGAN*\n`;
+    custs.forEach((c, i) => {
+        txt += `${i+1}. ${c.name} (${c.orders_count} orders)\n   Alamat: ${c.address}\n`;
+    });
+    m.reply(txt);
+    }
+    break;
+
 case "mane":
 case "menu":{
 let menu = `
@@ -331,7 +532,7 @@ Silahkan pilih menu dibawah ini
         interactiveMessage: {
             title: menu, 
             footer: global.Dev, 
-            thumbnail: fs.existsSync('./storage/fallback.jpg') ? fs.readFileSync('./storage/fallback.jpg') : undefined,
+            thumbnail: global.thumbnail2,
             nativeFlowMessage: {
                 messageParamsJson: JSON.stringify({
                     limited_time_offer: {
@@ -491,7 +692,9 @@ Berikut beberapa kemampuan saya :
 ╰──────────────────⪨
 
  ➢ 𝗧𝗢𝗣 𝗚𝗔𝗡𝗜𝗘𝗥 𝗠𝗘𝗡𝗨
-- .listproduk
+- .listresponse
+- .delresponse
+- .addresponseW
 - .done
 - .proses
 - .installpanel
@@ -580,8 +783,6 @@ Berikut beberapa kemampuan saya :
 - .upapikey
 
 ➢ 𝗢𝗪𝗡𝗘𝗥 𝗠𝗘𝗡𝗨
-- .delproduk
-- .addproduk
 - .delrespon
 - .addrespon
 - .bljpm
@@ -591,8 +792,7 @@ Berikut beberapa kemampuan saya :
 - .delowner
 - .resetdb
 - .upswgc
-
-*— ELAINA, evolving assistant built by Mane.*`;
+`;
 
         await sock.sendMessage(m.chat, {
             video: videoBuffer, 
@@ -632,17 +832,16 @@ Berikut beberapa kemampuan saya :
 break;
 case "menuios": {
 const teks = `
-𝗛𝗔𝗜𝗜 @${m.sender.split("@")[0]}
+𝗛𝗔𝗟𝗢 @${m.sender.split("@")[0]}
 ${global.ucapan()}
 
 𝗕𝗢𝗧 - 𝗜𝗡𝗙𝗢𝗥𝗠𝗔𝗧𝗜𝗢𝗡
- ▢ 𝗕𝗢𝗧𝗡𝗔𝗠𝗘: Mane Store
+ ▢ 𝗕𝗢𝗧𝗡𝗔𝗠𝗘: RzkyNT
  ▢ 𝗩𝗘𝗥𝗦𝗜𝗢𝗡: 𝟰.𝟬.𝟬
  ▢ 𝗕𝗢𝗧𝗠𝗢𝗗𝗘: ${sock.public ? "Public" : "Self"}
  ▢ 𝗗𝗘𝗩𝗘𝗟𝗢𝗣𝗘𝗥: RzkyNT
 
  ➢ 𝗧𝗢𝗣 𝗚𝗔𝗡𝗜𝗘𝗥 𝗠𝗘𝗡𝗨
-- .listproduk
 - .done
 - .proses
 - .installpanel
@@ -731,8 +930,6 @@ ${global.ucapan()}
 - .upapikey
 
 ➢ 𝗢𝗪𝗡𝗘𝗥 𝗠𝗘𝗡𝗨
-- .delproduk
-- .addproduk
 - .delrespon
 - .addrespon
 - .bljpm
@@ -747,10 +944,10 @@ let msg = await generateWAMessageFromContent(m.chat, {
  viewOnceMessageV2: {
  message: {
  interactiveMessage: {
-            header: {
-                ...(await safePrepareWAMessageMedia({ image: { url: global.thumbnail }}, { upload: sock.waUploadToServer })),
-            hasMediaAttachment: true
-         }, 
+ header: {
+ ...(await prepareWAMessageMedia({ image: { url: global.thumbnail }}, { upload: sock.waUploadToServer })),
+hasMediaAttachment: true
+ }, 
  body: { text: teks },
  nativeFlowMessage: {
  buttons: [
@@ -759,7 +956,7 @@ let msg = await generateWAMessageFromContent(m.chat, {
  buttonParamsJson: `{"display_text":"Channel WhatsApp","url":"${global.linkChannel}","merchant_url":"${global.linkChannel}"}`
  }
  ], 
- messageParamsJson: `{\"limited_time_offer\":{\"text\":\"Mane Store - Version 3.0.0\",\"url\":\"https://t.me/maneeofficial\",\"copy_code\":\"1\",\"expiration_time\":0},\"bottom_sheet\":{\"in_thread_buttons_limit\":2,\"divider_indices\":[1,2,3,4,5, 999],\"list_title\":\"1",\"button_title\":\"1\"},\"tap_target_configuration\":{\"title\":\"1\",\"description\":\"bomboclard\",\"canonical_url\":\"https://shop.example.com/angebot\",\"domain\":\"shop.example.com\",\"button_index\":0}}`
+ messageParamsJson: `{\"limited_time_offer\":{\"text\":\"${global.namaOwner} - Version 3.0.0\",\"url\":\"${global.linkChannel}\",\"copy_code\":\"1\",\"expiration_time\":0},\"bottom_sheet\":{\"in_thread_buttons_limit\":2,\"divider_indices\":[1,2,3,4,5, 999],\"list_title\":\"1",\"button_title\":\"1\"},\"tap_target_configuration\":{\"title\":\"1\",\"description\":\"${global.namaOwner}\",\"canonical_url\":\"https://shop.example.com/angebot\",\"domain\":\"shop.example.com\",\"button_index\":0}}`
  },
  contextInfo: {
  mentionedJid: [m.sender, global.owner + "@s.whatsapp.net"],
@@ -780,14 +977,25 @@ case "amane":
 case "allmenu":{
 let menu = `
 ${global.ucapan()}
-Hello👋 I am a simple store WhatsApp bot. I was created by Amane Ofc, nice to help you. 
-▢ Botname : Mane Store 
-▢ Version : 4.0.0
+Halo @${m.sender.split("@")[0]},
+▢ Botname : ${global.namaOwner} 
+▢ Version : ${global.version}
 ▢ Mode : ${sock.public ? "Public" : "Self"}
-▢ Creator : RzkyNT
+▢ Creator : ${global.Dev}
 ▢ Website : ${global.linkWebsite}
 ▢ Runtime : ${runtime(process.uptime())}  
  
+➢ 𝗗𝗘𝗣𝗢𝗧 𝗔𝗜𝗥 𝗠𝗘𝗡𝗨 (CRM)
+- .daftar (Daftar Pelanggan)
+- .order (Pesan Galon)
+- .produk (List Harga)
+- .statusorder (Cek Status)
+- .batalorder (Batalkan)
+- .listorder (Admin)
+- .antar (Admin)
+- .selesai (Admin)
+- .listcust (Admin)
+
 ➢ 𝗧𝗢𝗣 𝗚𝗔𝗡𝗜𝗘𝗥 𝗠𝗘𝗡𝗨
 - .listproduk
 - .done
@@ -878,8 +1086,6 @@ Hello👋 I am a simple store WhatsApp bot. I was created by Amane Ofc, nice to 
 - .upapikey
 
 ➢ 𝗢𝗪𝗡𝗘𝗥 𝗠𝗘𝗡𝗨
-- .delproduk
-- .addproduk
 - .delrespon
 - .addrespon
 - .bljpm
@@ -888,10 +1094,9 @@ Hello👋 I am a simple store WhatsApp bot. I was created by Amane Ofc, nice to 
 - .listowner
 - .delowner
 - .resetdb
-- .upswgc
-
-➤  ｢ *INFORMASI UPDATE SCRIPT* ｣ 
-https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d`
+- .upswgc`
+// ➤  ｢ *INFORMASI UPDATE APK* ｣ 
+// ${global.linkChannel}`
         await sock.sendMessage(m.chat, {
         interactiveMessage: {
             title: menu, 
@@ -901,7 +1106,7 @@ https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d`
                 messageParamsJson: JSON.stringify({
                     limited_time_offer: {
                         text: "RzkyNT Store V1.0.0",
-                        url: "t.me/maneeofficiall",
+                        url: global.linkChannel,
                         copy_code: "Expired 3/11/2026",
                         expiration_time: Date.now() * 999
                     },
@@ -914,7 +1119,7 @@ https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d`
                     tap_target_configuration: {
                         title: "RzkyNT",
                         description: "bomboclard",
-                        canonical_url: "https://t.me/maneeofficiall",
+                        canonical_url: global.linkChannel,
                         domain: "shop.example.com",
                         button_index: 0
                     }
@@ -934,17 +1139,17 @@ https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d`
                             title: "Menu⤵️",
                             sections: [
                                 {
-                                    title: "ARzkyNT ♻️",
+                                    title: "RzkyNT",
                                     highlight_label: "label",
                                     rows: [
                                         {
-                                            title: "@Saluran WhatsApp Amane 👇🏻", 
-                                            description: "https://whatsapp.com/channel/0029VbAu2g6ATRSpePrpSp3L\n\nhttps://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d\n\nhttps://whatsapp.com/channel/0029VbB8uqX1XquUjnzo2G2r\n\n> Jangan Lupa Follow Agar Tidak Ketinggalan Tentang Update Script Store Terbaru.",
+                                            title: "@Saluran WhatsApp", 
+                                            description: global.linkSaluran,
                                             id: "row_1"
                                         },
                                         { 
                                             title: "@Whatsapp Developer",
-                                            description: "wa.me/6289529161314",
+                                            description: global.owner,
                                             id: "row_2"
                                         }
                                     ]
@@ -958,7 +1163,7 @@ https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d`
                         buttonParamsJson: JSON.stringify({
                             display_text: "Expired 3/11/2025",
                             id: "123456789",
-                            copy_code: "wa.me/6289529161314"
+                            copy_code: global.linkChannel
                         })
                     },
                     {
@@ -1017,7 +1222,7 @@ https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d`
 break
 case "allmenuv2": {
 const teks = `
-Haii @${m.sender.split("@")[0]}
+Halo @${m.sender.split("@")[0]}
 ${global.ucapan()}
 
 ╔═══[ 𝐈𝐍𝐅𝐎𝐑𝐌𝐀𝐒𝐈 𝐁𝐎𝐓 ]═══╗
@@ -1025,6 +1230,17 @@ ${global.ucapan()}
 ║ 𝐑𝐔𝐍𝐓𝐈𝐌𝐄 : ${runtime(process.uptime())}
 ║ 𝐎𝐖𝐍𝐄𝐑   : @${global.owner}
 ╚══════════════════════╝
+
+➢ 𝗗𝗘𝗣𝗢𝗧 𝗔𝗜𝗥 𝗠𝗘𝗡𝗨 (CRM)
+- .daftar (Daftar Pelanggan)
+- .order (Pesan Galon)
+- .produk (List Harga)
+- .statusorder (Cek Status)
+- .batalorder (Batalkan)
+- .listorder (Admin)
+- .antar (Admin)
+- .selesai (Admin)
+- .listcust (Admin)
 
 ➢ 𝗧𝗢𝗣 𝗚𝗔𝗡𝗜𝗘𝗥 𝗠𝗘𝗡𝗨
 - .listproduk
@@ -1201,6 +1417,16 @@ await sock.sendStimg(m.chat, media, m, {packname: "RzkyNT"})
 }
 break
 case "openai": case "ai": {
+    if (args[0] === 'on') {
+        if (!isOwner) return m.reply(mess.owner);
+        global.db.settings.ai_chat = true;
+        return m.reply("✅ Fitur AI Chatbot telah diaktifkan.");
+    }
+    if (args[0] === 'off') {
+        if (!isOwner) return m.reply(mess.owner);
+        global.db.settings.ai_chat = false;
+        return m.reply("🔴 Fitur AI Chatbot telah dinonaktifkan.");
+    }
     if (!text) return m.reply(`*Contoh :* ${cmd} jelaskan apa itu javascript`);
     const result = await aiChat("", text, "openai/gpt-oss-120b")
     return m.reply(result)
@@ -1844,49 +2070,48 @@ case "autojpm": {
     break;
 }
 
-case "addproduk":
 case "addrespon": {
 if (!isOwner) return m.reply(mess.owner)
-if (!text || !text.includes("|")) return m.reply(`*Contoh :* ${cmd} cmd|response`)
+if (!text || !text.includes("|")) return m.reply(`*Contoh :* ${cmd} trigger|response`)
 let [ id, response ] = text.split("|")
 id = id.toLowerCase()
 const res = db.settings.respon
-if (res.find(v => v.id.toLowerCase() == id)) return m.reply(`Cmd ${id} sudah terdaftar dalam listproduk\nGunakan Cmd lain!`)
+if (res.find(v => v.id.toLowerCase() == id)) return m.reply(`Cmd ${id} sudah terdaftar dalam listrespon\nGunakan Cmd lain!`)
 db.settings.respon.push({
 id, 
 response
 })
-return m.reply(`*Sukses Menambah Listproduk ✅*
+return m.reply(`*Sukses Menambah Listrespon ✅*
 
-- Barang: ${id}
+- Trigger: ${id}
 - Response: ${response}
 `)
 }
 break
 
-case "listproduk": {
-if (db.settings.respon.length < 1) return m.reply("Tidak ada listproduk.")
+case "listrespon": {
+if (db.settings.respon.length < 1) return m.reply("Tidak ada listrespon.")
 let teks = ""
 for (let i of db.settings.respon) {
-teks += `\n- *Barang:* ${i.id}
+teks += `\n- *Trigger:* ${i.id}
 - *Response:* ${i.response}\n`
 }
 return m.reply(teks)
 }
 break
 
-case "delproduk": {
+case "delrespon": {
 if (!isOwner) return m.reply(mess.owner)
-if (!text) return m.reply(`*Contoh :* ${cmd} cmdnya`)
+if (!text) return m.reply(`*Contoh :* ${cmd} triggernya`)
 if (text.toLowerCase() == "all") {
 db.settings.respon = []
-return m.reply(`Berhasil menghapus semua Cmd ListProduk ✅`)
+return m.reply(`Berhasil menghapus semua Cmd ListRespon ✅`)
 }
 let res = db.settings.respon.find(v => v.id == text.toLowerCase())
-if (!res) return m.reply(`Cmd Respon Tidak Ditemukan!\nKetik *.listproduk* Untuk Melihat Semua Cmd ListProduk`)
+if (!res) return m.reply(`Cmd Respon Tidak Ditemukan!\nKetik *.listrespon* Untuk Melihat Semua Cmd ListRespon`)
 const posi = db.settings.respon.indexOf(res)
 db.settings.respon.splice(posi, 1)
-return m.reply(`Berhasil menghapus Cmd List Produk *${text}* ✅`)
+return m.reply(`Berhasil menghapus Cmd List Respon *${text}* ✅`)
 }
 break
 
@@ -2034,7 +2259,7 @@ case "pay": {
                 interactiveMessage: {
                     header: {
                     hasMediaAttachment: true, 
-                    ...(await safePrepareWAMessageMedia({ image: { url: global.qris } }, { upload: sock.waUploadToServer })),
+                    ...(await prepareWAMessageMedia({ image: { url: global.qris } }, { upload: sock.waUploadToServer })),
                     }, 
                     body: { 
                         text: `*Daftar Payment ${namaOwner} 🔖*`
@@ -5031,6 +5256,38 @@ if (m.text.startsWith('$')) {
             return sock.sendMessage(m.chat, { text: util.format(stdout) }, { quoted: m });
         }
     });
+}
+
+// AI & Responder ( Moved from top to prevent double response )
+if (m.body) {
+    const responder = db.settings.respon.find(v => v.id.toLowerCase() == m.body.toLowerCase())
+    if (responder && responder.response) {
+        await m.reply(responder.response)
+    } else if (!m.isGroup && global.db.settings.ai_chat) {
+        try {
+            const lowerText = m.body.toLowerCase();
+            // Check CRM context if user asks about prices/products naturally
+            if (lowerText.includes("harga") || lowerText.includes("jual") || lowerText.includes("produk")) {
+                 const crm = loadCrmData();
+                 let priceList = crm.products.map(p => `${p.name} (${p.price})`).join(", ");
+                 let prompt = `User bertanya: "${m.body}". Selalu gunakan bahasa indoensia Kamu adalah asisten Depot Air Isi Ulang. Jawab dengan ramah. Daftar harga kami: ${priceList}. Arahkan mereka untuk ketik ".order" jika mau pesan.`;
+                 const reply = await geminiChat(prompt);
+                 await m.reply(reply);
+            } else {   
+                 // General Chat with Context
+                 const prompt = `Kamu adalah asisten AI yang bernama MinBot untuk Depot Air Isi Ulang bernama "Depot Minhaqua".
+Gunakan Bahasa Indonesia yang santai, ramah, dan sopan.
+Tugasmu adalah melayani pelanggan yang ingin memesan air galon atau sekadar bertanya-tanya.
+Jika mereka ingin memesan, arahkan untuk mengetik ".order".
+Jangan pernah keluar dari karakter ini. Formatting, jika ingin memberikan response **responses** gunakan hanya satu *, agar terformat dengan benar di whatsapp
+Pesan User: "${m.body}"`;
+                 const reply = await geminiChat(prompt);
+                 await m.reply(reply);
+            }
+        } catch (e) {
+            console.log("Gemini Chat Error: " + e);
+        }
+    }
 }
 
 }

@@ -6,16 +6,18 @@ const chalk = require("chalk");
 const fs = require("fs");
 
 global.owner = "62895602416781"
+global.version = "4.0.0"
+global.dev = "IG: Rzky.NT"
 global.namaOwner = "RzkyNT"
 global.mode_public = true
 
-global.linkSaluran = "https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d"
-global.linkChannel = "https://whatsapp.com/channel/0029VbAu2g6ATRSpePrpSp3L"
+global.linkSaluran = "https://whatsapp.com/channel/0029Vb5RfCe7z4knVfZ6Ku2v"
+global.linkChannel = "https://whatsapp.com/channel/0029Vb5RfCe7z4knVfZ6Ku2v"
 global.linkWebsite = "https://rizqiahsansetiawan.ct.ws"
 global.idChannel = "120363400297473298@newsletter"
 global.linkGrup = "https://chat.whatsapp.com/HqEsfykjNCRA7GecpenP9V"
-global.thumbnail = "https://media.licdn.com/dms/image/v2/D5616AQFKZCq6Dlq7QA/profile-displaybackgroundimage-shrink_350_1400/B56ZmoIJ75I4AY-/0/1759462335419?e=1766620800&v=beta&t=QXzM0qaccjSX3A1bRkdeamDQ2koGVawGiWwQecuYv34"
-global.thumbnail2 = "https://media.licdn.com/dms/image/v2/D5616AQFKZCq6Dlq7QA/profile-displaybackgroundimage-shrink_350_1400/B56ZmoIJ75I4AY-/0/1759462335419?e=1766620800&v=beta&t=QXzM0qaccjSX3A1bRkdeamDQ2koGVawGiWwQecuYv34"
+global.thumbnail = "https://rizqiahsansetiawan.ct.ws/assets/img/about.jpg"
+global.thumbnail2 = "https://rizqiahsansetiawan.ct.ws/assets/img/about.jpg"
 
 global.dana = "0895602416781"
 global.ovo = "Tidak tersedia"
@@ -32,6 +34,22 @@ global.domain = 'https://neonprivateamane.kantinvps.my.id'
 global.apikey = 'ptla_nfxGfDEtqPKTvtEmiybbvHqfMnaTqhUCVLbMsEeAVoj' // Isi api ptla
 global.capikey = 'ptlc_OFai7puWJNdI9yJDKovikt3fo5sD9bCOnu5cOCIK4jV' // Isi api ptlc
 global.Dev = "IG: Rzky.NT"
+
+// Gemini API Keys (Reshuffle System)
+global.geminiKeys = [
+  "AIzaSyBkC5_KaurUfy2Kykt55G-fpsNM-sUuPj8",
+  "AIzaSyDU--l_sSD67KedbEhLU1-Nq64hXd9Lcf0",
+  "AIzaSyA04FMmQZxqtU98wk4bzl76o7po4egKTxs",
+  "AIzaSyD91AbdKvtKf2wLcecQyjdopzEvroQ_HQ4",
+  "AIzaSyDa33G3VqMxazDIrLw8aigfkWt2g2GWNAY",
+  "AIzaSyBX9d1CL73Vvrwemfy9N_BFwNrGxntsnIw",
+  "AIzaSyCITwoJ8mYfoInINvO3kD6c3nLhgOghge0",
+  "AIzaSyCWc7vDZaH9vb9YPiuwRFufq9AoAYzTMMs",
+  "AIzaSyCflyRXMm_2bTtxxgKW4OyECVYM3GhNfmQ",
+  "AIzaSyCgGeDr0iL-s65bzrtRX5pPOTvCANTlb7I",
+  "AIzaSyBUecUJAgWVV9RmIbzEm6I8beGbeuklN60",
+  "AIzaSyBFPAY2wm1AJr67z86bcqUSAqPlkRDGhEM"
+];
 
 
 global.subdomain = {
