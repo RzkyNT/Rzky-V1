@@ -555,7 +555,16 @@ case "orderconfirm": {
     crm.customers[m.sender].orders_count += 1;
     saveCrmData(crm);
     
-    m.reply(`✅ Pesanan Diterima!\nID: ${orderId}\nItem: ${amount}x ${product.name}\nTotal: Rp${total.toLocaleString()}\nPembayaran: ${paymentMethod}\nAlamat: ${crm.customers[m.sender].address}\n\nMohon tunggu kurir kami akan segera mengirim pesanan Anda.`);
+    let paymentInstructions = "";
+    if (paymentMethod.includes("Transfer")) {
+        paymentInstructions = `\n\n💳 *Info Transfer Bank:*\nBCA: ${global.rekBca}\nBRI: ${global.rekBri}\n\n*Mohon kirim bukti transfer ke nomor ini.*`;
+    } else if (paymentMethod.includes("E-Wallet")) {
+         paymentInstructions = `\n\n💸 *Info E-Wallet:*\nDANA: ${global.dana}\n*Mohon kirim bukti transfer ke nomor ini.*`;
+    } else {
+        paymentInstructions = `\n\n💵 *Info Pembayaran:*\nSilakan siapkan uang pas sebesar Rp${total.toLocaleString()} saat kurir datang.`;
+    }
+
+    m.reply(`✅ Pesanan Diterima!\nID: ${orderId}\nItem: ${amount}x ${product.name}\nTotal: Rp${total.toLocaleString()}\nPembayaran: ${paymentMethod}\nAlamat: ${crm.customers[m.sender].address}${paymentInstructions}\n\nMohon tunggu kurir kami akan segera mengirim pesanan Anda.`);
     
     // Notify Owner
     const ownerJid = global.owner + "@s.whatsapp.net";
@@ -1041,7 +1050,7 @@ case "antar": { // Renamed concept but keeping legacy alias for now or redirecti
     }, { userJid: m.sender, quoted: m });
     
     sock.relayMessage(m.chat, btnMsg.message, { messageId: btnMsg.key.id });
-    sock.sendMessage(order.customerId, { text: `🚚 Pesanan Anda ${order.amount}x ${order.item} sedang diantar oleh kurir ${m.pushName || "kami"}!` });
+    sock.sendMessage(order.customerId, { text: `🚚 Pesanan Anda ${order.amount}x ${order.item} sedang diantar oleh kurir ${m.pushName || "kami"} wa.me/${order.courierId}!` });
     
     if (isCourier) {
         sock.sendMessage(global.owner + "@s.whatsapp.net", { text: `ℹ️ Info: Kurir ${m.pushName || m.sender.split('@')[0]} mengambil antrian pesanan ${order.id} untuk ${order.customerName} dengan pemesanan ${order.amount}x ${order.item}.` });
@@ -1114,12 +1123,87 @@ case "selesai": {
     order.status = "Selesai";
     saveCrmData(crm);
     m.reply(`✅ Order ${order.customerName} dengan ID ${order.id} status diubah menjadi *Selesai*.`);
-    sock.sendMessage(order.customerId, { text: `✅ Pesanan Anda ${order.amount}x ${order.item} telah selesai diantar. Terima kasih!` });
+    
+    // Ask for Rating from Customer
+    let rateMsg = generateWAMessageFromContent(order.customerId, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: `✅ Pesanan Anda telah selesai diantar.\n\nBagaimana pelayanan kami? Mohon berikan penilaian:` },
+                    footer: { text: "Depot Minhaqua" },
+                    nativeFlowMessage: {
+                        buttons: [
+                            {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "⭐⭐⭐⭐⭐",
+                                    id: `.rateorder ${order.id} 5`
+                                })
+                            },
+                            {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "⭐⭐⭐⭐",
+                                    id: `.rateorder ${order.id} 4`
+                                })
+                            },
+                             {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "⭐⭐⭐",
+                                    id: `.rateorder ${order.id} 3`
+                                })
+                            },
+                             {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "⭐⭐",
+                                    id: `.rateorder ${order.id} 2`
+                                })
+                            },
+                             {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "⭐",
+                                    id: `.rateorder ${order.id} 1`
+                                })
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }, { userJid: order.customerId });
+
+    sock.relayMessage(order.customerId, rateMsg.message, { messageId: rateMsg.key.id });
     
     // Notify Owner if Courier Updated
     if (isCourier) {
         sock.sendMessage(global.owner + "@s.whatsapp.net", { text: `ℹ️ Info: Kurir ${m.pushName || m.sender.split('@')[0]} menyelesaikan pesanan ${order.id}.` });
     }
+}
+break;
+
+case "rateorder": {
+    const [orderId, scoreStr] = text.split(" ");
+    const score = parseInt(scoreStr);
+    const crm = loadCrmData();
+    const order = crm.orders.find(o => o.id === orderId);
+
+    if (!order) return m.reply("Order tidak ditemukan.");
+    if (order.rating) return m.reply("Anda sudah memberikan penilaian untuk pesanan ini.");
+    
+    order.rating = score;
+    saveCrmData(crm);
+    
+    m.reply(`Terima kasih atas penilaian ${score} bintangnya! ⭐\nKami akan terus meningkatkan pelayanan kami.`);
+    
+    // Notify Owner
+    sock.sendMessage(global.owner + "@s.whatsapp.net", { text: `⭐ *RATING DITERIMA*\n\nOrder: ${orderId}\nPelanggan: ${order.customerName}\nNilai: ${score}/5` });
 }
 break;
 
@@ -6174,24 +6258,63 @@ if (m.body) {
     } else if (!m.isGroup && global.db.settings.ai_chat) {
         try {
             const lowerText = m.body.toLowerCase();
-            // Check CRM context if user asks about prices/products naturally
-            if (lowerText.includes("harga") || lowerText.includes("jual") || lowerText.includes("produk")) {
-                 const crm = loadCrmData();
-                 let priceList = crm.products.map(p => `${p.name} (${p.price})`).join(", ");
-                 let prompt = `User bertanya: "${m.body}". Selalu gunakan bahasa indoensia Kamu adalah asisten Depot Air Isi Ulang. Jawab dengan ramah. Daftar harga kami: ${priceList}. Arahkan mereka untuk ketik ".order" jika mau pesan.`;
-                 const reply = await geminiChat(prompt);
-                 await m.reply(reply);
-            } else {   
-                 // General Chat with Context
-                 const prompt = `Kamu adalah asisten AI yang bernama MinBot untuk Depot Air Isi Ulang bernama "Depot Minhaqua".
-Gunakan Bahasa Indonesia yang santai, ramah, dan sopan.
-Tugasmu adalah melayani pelanggan yang ingin memesan air galon atau sekadar bertanya-tanya.
-Jika mereka ingin memesan, arahkan untuk mengetik ".order".
-Jangan pernah keluar dari karakter ini. Formatting, jika ingin memberikan response **responses** gunakan hanya satu *, agar terformat dengan benar di whatsapp
-Pesan User: "${m.body}"`;
-                 const reply = await geminiChat(prompt);
-                 await m.reply(reply);
-            }
+            const crm = loadCrmData();
+            
+            // Build Context Data
+            let priceList = crm.products.map(p => `- ${p.name}: Rp${p.price.toLocaleString()}`).join("\n");
+            let crmContext = `
+FITUR DAN PANDUAN:
+1. **Pemesanan (.order)**:
+   - Ketik ".order" atau ".pesan".
+   - Pilih produk dari daftar.
+   - Pilih jumlah (1-10 galon).
+   - Pilih pembayaran: COD (Bayar di Tempat), Transfer, atau E-Wallet.
+   - Kurir akan menerima pesanan dan mengantar ke lokasi yang terdaftar.
+
+2. **Pendaftaran (.daftar)**:
+   - Wajib bagi pelanggan baru.
+   - Ketik ".daftar".
+   - Masukkan Nama.
+   - Kirim Share Location (Peta) agar kurir tidak nyasar.
+   - Masukkan Detail Alamat (blok/nomor rumah).
+
+3. **Cek Status (.cekorder)**:
+   - Ketik ".cekorder" untuk melihat pesanan yang sedang diproses.
+   - Bisa membatalkan pesanan jika status masih "Pending".
+
+4. **Profil Akun (.profile)**:
+   - Ketik ".profile" untuk lihat data diri.
+   - Bisa edit nama (.editname) atau alamat (.editaddress).
+
+5. **Info & Bantuan**:
+   - Jam Buka: 08:00 - 20:00 WIB.
+   - Admin/Owner: ${global.owner}
+   - Stok selalu ready untuk galon isi ulang dan galon baru.
+
+DAFTAR HARGA:
+${priceList}
+`;
+
+            const prompt = `Kamu adalah "MinBot", asisten AI cerdas untuk Depot Air Minum "Depot Minhaqua".
+Tugasmu adalah membantu pelanggan dengan ramah, santai, dan sangat informatif menggunakan Bahasa Indonesia yang natural.
+
+KONTEKS SISTEM:
+${crmContext}
+
+INSTRUKSI KHUSUS:
+- Jika user bingung cara pesan, jelaskan langkah ".order" secara simpel.
+- Jika user belum daftar, arahkan ke ".daftar".
+- Jika user tanya harga, jawab sesuai data di atas.
+- Jika user tanya pesanan saya mana, arahkan ke ".cekorder".
+- Selalu gunakan format teks WhatsApp (seperti *tebal*, _miring_) untuk menekankan kata penting.
+- Jangan berhalusinasi fitur yang tidak ada (hanya fitur di atas yang tersedia).
+- Jika ada keluhan teknis berat, arahkan hubungi Owner.
+
+Pertanyaan User: "${m.body}"
+Jawablah sebagai MinBot:`;
+
+            const reply = await geminiChat(prompt);
+            await m.reply(reply);
         } catch (e) {
             console.log("Gemini Chat Error: " + e);
         }

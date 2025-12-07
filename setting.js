@@ -20,9 +20,9 @@ global.thumbnail = "https://rizqiahsansetiawan.ct.ws/assets/img/about.jpg"
 global.thumbnail2 = "https://rizqiahsansetiawan.ct.ws/assets/img/about.jpg"
 
 global.dana = "0895602416781"
-global.ovo = "Tidak tersedia"
-global.gopay = "Tidak tersedia"
 global.qris = "Tidak Tersedia"
+global.rekBca = "1234567890 (RIZQI AHSAN)"
+global.rekBri = "0987654321 (RIZQI AHSAN)"
 
 global.JedaPushkontak = 8000
 global.JedaJpm = 7000

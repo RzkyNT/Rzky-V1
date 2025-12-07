@@ -1,60 +1,16 @@
 {
   "users": {
     "62895602416781@s.whatsapp.net": {},
-    "6281312934262@s.whatsapp.net": {},
     "6281284565941@s.whatsapp.net": {},
-    "628888213524@s.whatsapp.net": {},
-    "6285710938401@s.whatsapp.net": {},
-    "6281288155773@s.whatsapp.net": {},
-    "6282125907558@s.whatsapp.net": {},
-    "120363296171556721@newsletter": {},
-    "6285324099612@s.whatsapp.net": {},
-    "120363423464249455@newsletter": {},
-    "120363405362316840@newsletter": {},
-    "6285885135015@s.whatsapp.net": {},
-    "6285319255090@s.whatsapp.net": {},
-    "628986188722@s.whatsapp.net": {},
-    "6285899923775@s.whatsapp.net": {},
-    "628999497907@s.whatsapp.net": {},
-    "6285217504850@s.whatsapp.net": {},
-    "6281311281710@s.whatsapp.net": {},
-    "120363403897687476@newsletter": {},
-    "628987060646@s.whatsapp.net": {},
-    "6283147460560@s.whatsapp.net": {},
-    "6285775822767@s.whatsapp.net": {},
-    "120363402625644245@newsletter": {},
-    "120363308568634591@newsletter": {},
-    "6289652989262@s.whatsapp.net": {},
-    "6285930134899@s.whatsapp.net": {},
-    "6289602792988@s.whatsapp.net": {},
-    "6285819296078@s.whatsapp.net": {},
-    "6282132545587@s.whatsapp.net": {}
+    "6289602792988@s.whatsapp.net": {}
   },
-  "groups": {
-    "6285314373302-1590735566@g.us": {
-      "antilink": false,
-      "antilink2": false
-    },
-    "120363404940437912@g.us": {
-      "antilink": false,
-      "antilink2": false
-    },
-    "6285321314889-1437527810@g.us": {
-      "antilink": false,
-      "antilink2": false
-    }
-  },
+  "groups": {},
   "settings": {
     "welcome": false,
     "developer": [],
     "reseller": [],
     "bljpm": [],
-    "respon": [
-      {
-        "id": "pesen air",
-        "response": "berapa airnya?"
-      }
-    ],
-    "ai_chat": false
+    "respon": [],
+    "ai_chat": true
   }
 }
