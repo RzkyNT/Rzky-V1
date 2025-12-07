@@ -376,7 +376,7 @@ case "pesan": {
         item: product.name,
         amount: amount,
         total: total,
-        status: "Pending",
+        status: "Menunggu",
         date: new Date().toISOString()
     };
     
@@ -404,7 +404,7 @@ case "orderquantity": {
              name: "quick_reply",
              buttonParamsJson: JSON.stringify({
                  display_text: `${i} ${product.name}`,
-                 id: `.selectpayment ${idx} ${i}`
+                 id: `.addtocart ${idx} ${i}`
              })
          });
     }
@@ -443,7 +443,7 @@ case "orderquantity": {
 }
 break;
 
-case "selectpayment": {
+case "addtocart": {
     const [idxStr, qtyStr] = text.split(" ");
     const idx = parseInt(idxStr);
     const qty = parseInt(qtyStr);
@@ -452,26 +452,164 @@ case "selectpayment": {
     
     if (!product) return m.reply("Produk tidak valid.");
 
+    // Init Global Cart
+    if (!global.cart) global.cart = {};
+    if (!global.cart[m.sender]) global.cart[m.sender] = [];
+    
+    const cart = global.cart[m.sender];
+    
+    // Check if product already in cart, update qty if yes
+    const existingItem = cart.find(item => item.idx === idx);
+    if (existingItem) {
+        existingItem.qty += qty;
+    } else {
+        cart.push({ idx: idx, name: product.name, price: product.price, qty: qty });
+    }
+    
+    let buttons = [
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "✅ Checkout (Selesai)",
+                id: `.cart`
+            })
+        },
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "➕ Tambah Produk Lain",
+                id: `.order`
+            })
+        }
+    ];
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: `✅ Berhasil ditambahkan ke Keranjang!\n\nItem: ${product.name}\nJumlah: ${qty}\n\nApa yang ingin Anda lakukan selanjutnya?` },
+                    footer: { text: "Depot Minhaqua" },
+                    nativeFlowMessage: {
+                        buttons: buttons,
+                         messageParamsJson: JSON.stringify({
+                             from_flow: true 
+                         }) 
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    
+    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+}
+break;
+
+case "cart": {
+    if (!global.cart || !global.cart[m.sender] || global.cart[m.sender].length === 0) {
+        return m.reply("🛒 Keranjang belanja Anda kosong. Silakan pesan dulu dengan ketik .order");
+    }
+    
+    const cart = global.cart[m.sender];
+    let cartList = "🛒 *KERANJANG BELANJA*\n\n";
+    let total = 0;
+    
+    cart.forEach((item, i) => {
+        cartList += `${i+1}. ${item.name} (${item.qty}x) - Rp${(item.price * item.qty).toLocaleString()}\n`;
+        total += item.price * item.qty;
+    });
+    
+    cartList += `\n*Total Bayar: Rp${total.toLocaleString()}*`;
+    
+    let buttons = [
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "💵 Pilih Pembayaran",
+                id: `.selectpayment`
+            })
+        },
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "❌ Kosongkan Keranjang",
+                id: `.emptycart`
+            })
+        },
+         {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "➕ Tambah Lagi",
+                id: `.order`
+            })
+        }
+    ];
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: cartList },
+                    footer: { text: "Depot Minhaqua" },
+                    nativeFlowMessage: {
+                        buttons: buttons,
+                         messageParamsJson: JSON.stringify({
+                             from_flow: true 
+                         }) 
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    
+    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+}
+break;
+
+case "emptycart": {
+    if (global.cart && global.cart[m.sender]) {
+        delete global.cart[m.sender];
+        m.reply("✅ Keranjang berhasil dikosongkan.");
+    } else {
+        m.reply("Keranjang sudah kosong.");
+    }
+}
+break;
+
+case "selectpayment": {
+    if (!global.cart || !global.cart[m.sender] || global.cart[m.sender].length === 0) return m.reply("Keranjang kosong. Ketik .order dulu.");
+    
+    const cart = global.cart[m.sender];
+    const total = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+    const crm = loadCrmData();
+
     let buttons = [
         {
             name: "quick_reply",
             buttonParamsJson: JSON.stringify({
                 display_text: "💵 COD (Bayar di Tempat)",
-                id: `.orderconfirm ${idx} ${qty} COD`
+                id: `.orderconfirm COD`
             })
         },
         {
             name: "quick_reply",
             buttonParamsJson: JSON.stringify({
                 display_text: "🏦 Transfer Bank",
-                id: `.orderconfirm ${idx} ${qty} Transfer`
+                id: `.orderconfirm Transfer`
             })
         },
         {
             name: "quick_reply",
             buttonParamsJson: JSON.stringify({
                 display_text: "💸 E-Wallet (Dana/OVO)",
-                id: `.orderconfirm ${idx} ${qty} E-Wallet`
+                id: `.orderconfirm E-Wallet`
             })
         },
         {
@@ -491,7 +629,7 @@ case "selectpayment": {
                     deviceListMetadataVersion: 2
                 },
                 interactiveMessage: {
-                    body: { text: `Konfirmasi Pesanan:\n\nJumlah: ${qty} ${product.name}\nTotal: Rp${(product.price * qty).toLocaleString()}\n\nPilih Metode Pembayaran:` },
+                    body: { text: `Konfirmasi Pesanan:\n\nTotal Item: ${cart.length} jenis\nTotal Bayar: Rp${total.toLocaleString()}\n\nPilih Metode Pembayaran:` },
                     footer: { text: "Depot Minhaqua" },
                     nativeFlowMessage: {
                         buttons: buttons,
@@ -508,32 +646,19 @@ case "selectpayment": {
 }
 break;
 
-case "batalorder_flow": {
-    m.reply("❌ Pesanan dibatalkan.");
-}
-break;
-
 case "orderconfirm": {
-    // Expected text: idx qty paymentMethod
-    // Payment method can contain spaces (e.g. "Transfer Bank")
-    // Let's use split limit
-    const args = text.split(" ");
-    const idxStr = args[0];
-    const amountStr = args[1];
-    const paymentMethod = args.slice(2).join(" ") || "COD"; // Default COD if missing
-
-    const amount = parseInt(amountStr);
-    const idx = parseInt(idxStr);
-    const crm = loadCrmData();
-    const product = crm.products[idx];
-
-    if (!product || isNaN(amount)) return m.reply("Data pesanan error.");
-
-    // Reuse existing logic by calling the main order command text manually or duplicating logic.
-    // simpler to duplicate logic for clarity here or redirect.
-    // Let's copy-paste the core logic for now to ensure it works without recursion issues
+    const paymentMethod = text || "COD";
     
-    const total = amount * product.price;
+    if (!global.cart || !global.cart[m.sender]) return m.reply("Keranjang kosong/kadaluarsa. Silakan pesan ulang.");
+    const cart = global.cart[m.sender];
+    const crm = loadCrmData();
+    
+    const total = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+    
+    // Construct Item Details String
+    let itemDetails = cart.map(i => `${i.qty}x ${i.name}`).join(", ");
+    let fullOrderSummary = cart.map(i => `- ${i.qty}x ${i.name} (@${i.price})`).join("\n");
+
     const orderId = generateOrderId();
     
     const newOrder = {
@@ -541,13 +666,14 @@ case "orderconfirm": {
         customerId: m.sender,
         customerName: crm.customers[m.sender].name,
         address: crm.customers[m.sender].address,
-        latitude: crm.customers[m.sender].latitude, // Pass coords to order
+        latitude: crm.customers[m.sender].latitude, 
         longitude: crm.customers[m.sender].longitude,
-        item: product.name,
-        amount: amount,
+        item: itemDetails, 
+        items: cart, 
+        amount: cart.reduce((acc, i) => acc + i.qty, 0), 
         total: total,
         paymentMethod: paymentMethod,
-        status: "Pending",
+        status: "Menunggu",
         date: new Date().toISOString()
     };
     
@@ -555,26 +681,28 @@ case "orderconfirm": {
     crm.customers[m.sender].orders_count += 1;
     saveCrmData(crm);
     
+    // Clear Cart
+    delete global.cart[m.sender];
+    
     let paymentInstructions = "";
     if (paymentMethod.includes("Transfer")) {
         paymentInstructions = `\n\n💳 *Info Transfer Bank:*\nBCA: ${global.rekBca}\nBRI: ${global.rekBri}\n\n*Mohon kirim bukti transfer ke nomor ini.*`;
     } else if (paymentMethod.includes("E-Wallet")) {
-         paymentInstructions = `\n\n💸 *Info E-Wallet:*\nDANA: ${global.dana}\n*Mohon kirim bukti transfer ke nomor ini.*`;
+         paymentInstructions = `\n\n💸 *Info E-Wallet:*\nDANA: ${global.dana}\nOVO: ${global.ovo}\nGopay: ${global.gopay}\n\n*Mohon kirim bukti transfer ke nomor ini.*`;
     } else {
         paymentInstructions = `\n\n💵 *Info Pembayaran:*\nSilakan siapkan uang pas sebesar Rp${total.toLocaleString()} saat kurir datang.`;
     }
 
-    m.reply(`✅ Pesanan Diterima!\nID: ${orderId}\nItem: ${amount}x ${product.name}\nTotal: Rp${total.toLocaleString()}\nPembayaran: ${paymentMethod}\nAlamat: ${crm.customers[m.sender].address}${paymentInstructions}\n\nMohon tunggu kurir kami akan segera mengirim pesanan Anda.`);
+    m.reply(`✅ Pesanan Diterima!\nID: ${orderId}\n\n*Detail Pesanan:*\n${fullOrderSummary}\n\nTotal: Rp${total.toLocaleString()}\nPembayaran: ${paymentMethod}\nAlamat: ${crm.customers[m.sender].address}${paymentInstructions}\n\nMohon tunggu kurir kami akan segera mengirim pesanan Anda.`);
     
     // Notify Owner
     const ownerJid = global.owner + "@s.whatsapp.net";
-    sock.sendMessage(ownerJid, { text: `🔔 *PESANAN BARU*\n\nDari: ${newOrder.customerName}\nItem: ${amount}x ${product.name}\nTotal: Rp${total.toLocaleString()}\nPembayaran: ${paymentMethod}\nAlamat: ${newOrder.address}\nID: ${orderId}` });
+    sock.sendMessage(ownerJid, { text: `🔔 *PESANAN BARU (MULTI-ITEM)*\n\nDari: ${newOrder.customerName}\n${fullOrderSummary}\n\nTotal: Rp${total.toLocaleString()}\nPembayaran: ${paymentMethod}\nAlamat: ${newOrder.address}\nID: ${orderId}` });
     
     // Notify Couriers
     if (crm.couriers && crm.couriers.length > 0) {
         crm.couriers.forEach(async (courierNum) => {
             const courierJid = courierNum + "@s.whatsapp.net";
-            // Construct Interactive Button Message for Courier
             let btnMsg = generateWAMessageFromContent(courierJid, {
                 viewOnceMessage: {
                     message: {
@@ -583,7 +711,7 @@ case "orderconfirm": {
                             deviceListMetadataVersion: 2
                         },
                         interactiveMessage: {
-                            body: { text: `🔔 *ORDER BARU MASUK*\n\nArea: ${newOrder.address}\nItem: ${newOrder.amount}x ${newOrder.item}\nTotal: Rp${newOrder.total.toLocaleString()}\nPembayaran: ${paymentMethod}\n\nSegera ambil antrian!` },
+                            body: { text: `🔔 *ORDER BARU MASUK*\n\nArea: ${newOrder.address}\nItem: ${itemDetails}\nTotal: Rp${newOrder.total.toLocaleString()}\nPembayaran: ${paymentMethod}\n\nSegera ambil antrian!` },
                             footer: { text: "Panel Depot Minhaqua" },
                             nativeFlowMessage: {
                                 buttons: [
@@ -605,6 +733,11 @@ case "orderconfirm": {
         });
     }
 
+}
+break;
+
+case "batalorder_flow": {
+    m.reply("❌ Pesanan dibatalkan.");
 }
 break;
 
@@ -764,7 +897,7 @@ case "harga": {
 case "cekorder":
 case "statusorder": {
     const crm = loadCrmData();
-    const myOrders = crm.orders.filter(o => o.customerId === m.sender && (o.status === "Pending" || o.status === "Diantar"));
+    const myOrders = crm.orders.filter(o => o.customerId === m.sender && (o.status === "Menunggu" || o.status === "Diantar"));
     
     if (myOrders.length === 0) return m.reply("Anda tidak memiliki pesanan aktif saat ini.");
     
@@ -817,7 +950,7 @@ case "statusdetail": {
     if (!order) return m.reply("Pesanan tidak ditemukan.");
 
     let buttons = [];
-    if (order.status === "Pending") {
+    if (order.status === "Menunggu") {
          buttons.push({
              name: "quick_reply",
              buttonParamsJson: JSON.stringify({
@@ -868,7 +1001,7 @@ case "batalorder": {
     const orderIdx = crm.orders.findIndex(o => o.id === orderId && o.customerId === m.sender);
     
     if (orderIdx === -1) return m.reply("Pesanan tidak ditemukan.");
-    if (crm.orders[orderIdx].status !== "Pending") return m.reply("Pesanan tidak dapat dibatalkan karena sudah diproses/selesai.");
+    if (crm.orders[orderIdx].status !== "Menunggu") return m.reply("Pesanan tidak dapat dibatalkan karena sudah diproses/selesai.");
     
     crm.orders[orderIdx].status = "Dibatalkan";
     saveCrmData(crm);
@@ -882,7 +1015,7 @@ case "listorder": {
     const isCourier = crm.couriers && crm.couriers.includes(m.sender.split('@')[0]);
     if (!isOwner && !isReseller && !isCourier) return m.reply(mess.owner); // Reseller dianggap staff/admin
 
-    const activeOrders = crm.orders.filter(o => o.status === "Pending" || o.status === "Diantar");
+    const activeOrders = crm.orders.filter(o => o.status === "Menunggu" || o.status === "Diantar");
     
     if (activeOrders.length === 0) return m.reply("Tidak ada pesanan aktif.");
 
@@ -941,11 +1074,11 @@ case "manageorder": {
 
     let buttons = [];
     
-    // Logic: If pending, courier can "Take Job" (Ambil Antrian).
+    // Logic: If Menunggu, courier can "Take Job" (Ambil Antrian).
     // If already "Diantar" by THIS courier, show "Selesai".
     // If "Diantar" by someone else, show info.
     
-    if (order.status === "Pending") {
+    if (order.status === "Menunggu") {
          buttons.push({
              name: "quick_reply",
              buttonParamsJson: JSON.stringify({
@@ -1000,7 +1133,7 @@ case "antar": { // Renamed concept but keeping legacy alias for now or redirecti
     const order = crm.orders.find(o => o.id === text.trim());
     
     if (!order) return m.reply("Order tidak ditemukan.");
-    if (order.status !== "Pending") return m.reply(`Order sudah diproses dengan status: ${order.status}`);
+    if (order.status !== "Menunggu") return m.reply(`Order sudah diproses dengan status: ${order.status}`);
     
     order.status = "Diantar";
     order.courierId = m.sender.split('@')[0]; // Assign courier
@@ -6246,7 +6379,15 @@ if (global.registrationSession && global.registrationSession[m.sender]) {
         saveCrmData(crm);
         
         delete global.registrationSession[m.sender];
-        return m.reply(`✅ Pendaftaran Berhasil!\nNama: ${name}\nAlamat: ${address}\n\nSilakan ketik order untuk melanjutkan pemesanan.`);
+        let buttons = [
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "Order Pesanan",
+                id: `.order`
+            })
+        }];
+        await m.reply("Silakan pilih opsi di bawah ini", buttons);
     }
 }
 
@@ -6280,7 +6421,7 @@ FITUR DAN PANDUAN:
 
 3. **Cek Status (.cekorder)**:
    - Ketik ".cekorder" untuk melihat pesanan yang sedang diproses.
-   - Bisa membatalkan pesanan jika status masih "Pending".
+   - Bisa membatalkan pesanan jika status masih "Menunggu".
 
 4. **Profil Akun (.profile)**:
    - Ketik ".profile" untuk lihat data diri.

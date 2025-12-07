@@ -1,48 +1,6 @@
 {
-  "customers": {
-    "62895602416781@s.whatsapp.net": {
-      "id": "62895602416781@s.whatsapp.net",
-      "name": "Rizki ahsan",
-      "address": "Blok U1 No 7",
-      "latitude": -6.1990612,
-      "longitude": 107.0098377,
-      "phone": "62895602416781",
-      "joined": "2025-12-07T13:24:39.122Z",
-      "orders_count": 2
-    }
-  },
-  "orders": [
-    {
-      "id": "ORD-95433482",
-      "customerId": "62895602416781@s.whatsapp.net",
-      "customerName": "Rizki ahsan",
-      "address": "Blok U1 No 7",
-      "latitude": -6.1990612,
-      "longitude": 107.0098377,
-      "item": "Isi Ulang (Galon Aqua)",
-      "amount": 1,
-      "total": 6500,
-      "paymentMethod": "Transfer",
-      "status": "Selesai",
-      "date": "2025-12-07T13:25:54.335Z",
-      "courierId": "6289602792988",
-      "rating": 5
-    },
-    {
-      "id": "ORD-13483583",
-      "customerId": "62895602416781@s.whatsapp.net",
-      "customerName": "Rizki ahsan",
-      "address": "Blok U1 No 7",
-      "latitude": -6.1990612,
-      "longitude": 107.0098377,
-      "item": "Tuker Gas LPG 3kg",
-      "amount": 2,
-      "total": 48000,
-      "paymentMethod": "E-Wallet",
-      "status": "Pending",
-      "date": "2025-12-07T13:28:54.836Z"
-    }
-  ],
+  "customers": {},
+  "orders": [],
   "products": [
     {
       "name": "Isi Ulang (Galon Aqua)",
