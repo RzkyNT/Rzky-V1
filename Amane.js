@@ -6665,24 +6665,73 @@ ${crmContext}
 
 INSTRUKSI KHUSUS:
 - Jika user bingung cara pesan, jelaskan langkah ".order" secara simpel.
-- Jika user belum daftar, arahkan ke ".daftar".
 - Jika user tanya harga, jawab sesuai data di atas.
 - Jika user tanya pesanan saya mana, arahkan ke ".cekorder".
 - Selalu gunakan format teks WhatsApp (seperti *tebal*, _miring_) untuk menekankan kata penting.
 - Jangan berhalusinasi fitur yang tidak ada (hanya fitur di atas yang tersedia).
 - Jika ada keluhan teknis berat, arahkan hubungi Owner.
-- Jika user bertanya soal status pesanan atau cek order, tambahkan teks '[BUTTON:CEK_ORDER]' di akhir respon Anda.
-- Jika user ingin membeli/memesan galon/air, tambahkan '[BUTTON:ORDER]' di akhir respon.
-- Jika user minta daftar harga/produk, tambahkan '[BUTTON:LIST_PRODUK]' di akhir respon.
+
+DETEKSI NATURAL LANGUAGE ORDER:
+- Jika user mengatakan "pesan air", "mau beli galon", "order air", "pesen 3 galon", dll, berarti mereka ingin ORDER.
+- Default produk adalah "Galon Isi Ulang" jika tidak disebutkan spesifik.
+- Jika ada angka (contoh: "pesen 3", "beli 2 galon"), itu adalah jumlah pesanan.
+- Jika terdeteksi intent ORDER, jelaskan singkat bahwa pesanan akan diproses dan tambahkan '[ORDER_DETECTED:productIndex:quantity]' di akhir.
+  Format: [ORDER_DETECTED:0:3] artinya produk index 0 (Galon Isi Ulang) sebanyak 3.
+  Jika tidak ada angka, default quantity = 1.
+
+BUTTON TRIGGERS (tambahkan di akhir respon):
+- Jika user bertanya soal status pesanan atau cek order, tambahkan '[BUTTON:CEK_ORDER]'.
+- Jika user ingin membeli/memesan galon/air (tapi tidak spesifik angka), tambahkan '[BUTTON:ORDER]'.
+- Jika user minta daftar harga/produk, tambahkan '[BUTTON:LIST_PRODUK]'.
+- Jika user tanya profil/data diri, tambahkan '[BUTTON:PROFILE]'.
 
 Pertanyaan User: "${m.body}"
 Jawablah sebagai MinBot:`;
 
             const result = await geminiChat(prompt);
             
-            // Parse response for buttons
+            // Parse response for natural language orders
             let finalBody = result;
             let buttons = [];
+            
+            // Check for ORDER_DETECTED pattern
+            const orderMatch = result.match(/\[ORDER_DETECTED:(\d+):(\d+)\]/);
+            if (orderMatch) {
+                const productIdx = parseInt(orderMatch[1]);
+                const quantity = parseInt(orderMatch[2]);
+                finalBody = finalBody.replace(/\[ORDER_DETECTED:\d+:\d+\]/, "").trim();
+                
+                // Auto-add to cart
+                const product = crm.products[productIdx];
+                if (product) {
+                    if (!global.cart) global.cart = {};
+                    if (!global.cart[m.sender]) global.cart[m.sender] = [];
+                    
+                    const existingItem = global.cart[m.sender].find(item => item.idx === productIdx);
+                    if (existingItem) {
+                        existingItem.qty += quantity;
+                    } else {
+                        global.cart[m.sender].push({ idx: productIdx, name: product.name, price: product.price, qty: quantity });
+                    }
+                    
+                    // Add checkout button
+                    buttons.push({
+                        name: "quick_reply",
+                        buttonParamsJson: JSON.stringify({
+                            display_text: "✅ Checkout Selesai",
+                            id: `.orderconfirm COD`
+                        })
+                    });
+                    
+                    buttons.push({
+                        name: "quick_reply",
+                        buttonParamsJson: JSON.stringify({
+                            display_text: "➕ Tambah Lagi",
+                            id: `.order`
+                        })
+                    });
+                }
+            }
 
             if (result.includes("[BUTTON:CEK_ORDER]")) {
                 finalBody = finalBody.replace("[BUTTON:CEK_ORDER]", "").trim();
@@ -6713,6 +6762,28 @@ Jawablah sebagai MinBot:`;
                     buttonParamsJson: JSON.stringify({
                         display_text: "📋 Daftar Produk",
                         id: ".listproduk"
+                    })
+                });
+            }
+            
+            if (result.includes("[BUTTON:DAFTAR]")) {
+                finalBody = finalBody.replace("[BUTTON:DAFTAR]", "").trim();
+                buttons.push({
+                    name: "quick_reply",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: "📝 Daftar Sekarang",
+                        id: ".daftar"
+                    })
+                });
+            }
+            
+            if (result.includes("[BUTTON:PROFILE]")) {
+                finalBody = finalBody.replace("[BUTTON:PROFILE]", "").trim();
+                buttons.push({
+                    name: "quick_reply",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: "👤 Lihat Profil",
+                        id: ".profile"
                     })
                 });
             }
