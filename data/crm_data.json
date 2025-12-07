@@ -6,7 +6,7 @@
       "address": "Blok U1 No 7",
       "phone": "62895602416781",
       "joined": "2025-12-07T09:44:09.485Z",
-      "orders_count": 7
+      "orders_count": 10
     },
     "6285710938401@s.whatsapp.net": {
       "id": "6285710938401@s.whatsapp.net",
@@ -14,7 +14,7 @@
       "address": "VGB BLOK A1 NOMOR 59",
       "phone": "6285710938401",
       "joined": "2025-12-07T11:02:54.100Z",
-      "orders_count": 1
+      "orders_count": 3
     }
   },
   "orders": [
@@ -103,7 +103,7 @@
       "item": "Tuker Gas LPG 3kg",
       "amount": 2,
       "total": 44000,
-      "status": "Diantar",
+      "status": "Selesai",
       "date": "2025-12-07T11:26:43.077Z"
     },
     {
@@ -116,6 +116,66 @@
       "total": 25000,
       "status": "Selesai",
       "date": "2025-12-07T11:33:02.513Z"
+    },
+    {
+      "id": "ORD-08943023",
+      "customerId": "6285710938401@s.whatsapp.net",
+      "customerName": "Lilis",
+      "address": "VGB BLOK A1 NOMOR 59",
+      "item": "Isi Ulang (Galon Aqua)",
+      "amount": 2,
+      "total": 13000,
+      "status": "Selesai",
+      "date": "2025-12-07T11:48:09.430Z",
+      "courierId": "62895602416781"
+    },
+    {
+      "id": "ORD-18910197",
+      "customerId": "6285710938401@s.whatsapp.net",
+      "customerName": "Lilis",
+      "address": "VGB BLOK A1 NOMOR 59",
+      "item": "Isi Ulang (Galon Aqua)",
+      "amount": 10,
+      "total": 65000,
+      "status": "Selesai",
+      "date": "2025-12-07T11:49:49.101Z",
+      "courierId": "62895602416781"
+    },
+    {
+      "id": "ORD-37030447",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizqi",
+      "address": "Blok U1 No 7",
+      "item": "Isi Ulang (Galon Aqua)",
+      "amount": 5,
+      "total": 32500,
+      "status": "Selesai",
+      "date": "2025-12-07T11:52:50.305Z",
+      "courierId": "62895602416781"
+    },
+    {
+      "id": "ORD-59944052",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizqi",
+      "address": "Blok U1 No 7",
+      "item": "Tuker Gas LPG 3kg",
+      "amount": 1,
+      "total": 22000,
+      "status": "Selesai",
+      "date": "2025-12-07T11:56:39.440Z",
+      "courierId": "62895602416781"
+    },
+    {
+      "id": "ORD-72488993",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizqi",
+      "address": "Blok U1 No 7",
+      "item": "Isi Ulang (Galon Aqua)",
+      "amount": 3,
+      "total": 19500,
+      "status": "Diantar",
+      "date": "2025-12-07T11:58:44.889Z",
+      "courierId": "62895602416781"
     }
   ],
   "products": [
@@ -128,8 +188,12 @@
       "price": 5000
     },
     {
-      "name": "Tuker Gas LPG 3kg",
+      "name": "Tukar Aqua",
       "price": 22000
+    },
+    {
+      "name": "Tuker Gas LPG 3kg",
+      "price": 24000
     }
   ],
   "couriers": [

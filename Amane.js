@@ -494,8 +494,8 @@ case "orderconfirm": {
                                     {
                                         name: "quick_reply",
                                         buttonParamsJson: JSON.stringify({
-                                            display_text: "🚀 Antar Sekarang",
-                                            id: `.antar ${orderId}`
+                                            display_text: "📦 Ambil Antrian",
+                                            id: `.ambilantrian ${orderId}`
                                         })
                                     }
                                 ]
@@ -783,22 +783,31 @@ case "manageorder": {
 
     if (!order) return m.reply("Order tidak ditemukan.");
 
-    let buttons = [
-        {
+    let buttons = [];
+    
+    // Logic: If pending, courier can "Take Job" (Ambil Antrian).
+    // If already "Diantar" by THIS courier, show "Selesai".
+    // If "Diantar" by someone else, show info.
+    
+    if (order.status === "Pending") {
+         buttons.push({
              name: "quick_reply",
              buttonParamsJson: JSON.stringify({
-                 display_text: "🚚 Kirim (Antar)",
-                 id: `.antar ${orderId}`
+                 display_text: "📦 Ambil Antrian",
+                 id: `.ambilantrian ${orderId}`
              })
-        },
-        {
-             name: "quick_reply",
-             buttonParamsJson: JSON.stringify({
-                 display_text: "✅ Selesai",
-                 id: `.selesai ${orderId}`
-             })
-        }
-    ];
+         });
+    } else if (order.status === "Diantar") {
+        if (order.courierId === m.sender.split('@')[0] || isOwner) {
+             buttons.push({
+                 name: "quick_reply",
+                 buttonParamsJson: JSON.stringify({
+                     display_text: "✅ Selesai (Sudah Sampai)",
+                     id: `.selesai ${orderId}`
+                 })
+             });
+        } 
+    }
 
     let msg = generateWAMessageFromContent(m.chat, {
         viewOnceMessage: {
@@ -808,7 +817,7 @@ case "manageorder": {
                     deviceListMetadataVersion: 2
                 },
                 interactiveMessage: {
-                    body: { text: `Detail Pesanan\n\nID: ${order.id}\nNama: ${order.customerName}\nAlamat: ${order.address}\nItem: ${order.amount}x ${order.item}\nTotal: Rp${order.total.toLocaleString()}\nStatus: *${order.status}*\n\nPilih Tindakan:` },
+                    body: { text: `Detail Pesanan\n\nID: ${order.id}\nNama: ${order.customerName}\nAlamat: ${order.address}\nItem: ${order.amount}x ${order.item}\nTotal: Rp${order.total.toLocaleString()}\nStatus: *${order.status}*\nKurir: ${order.courierId || "-"}` },
                     footer: { text: "Panel Depot Minhaqua" },
                     nativeFlowMessage: {
                          buttons: buttons,
@@ -825,25 +834,107 @@ case "manageorder": {
 }
 break;
 
-case "antar": {
+case "ambilantrian":
+case "antar": { // Renamed concept but keeping legacy alias for now or redirecting
     const crm = loadCrmData();
     const isCourier = crm.couriers && crm.couriers.includes(m.sender.split('@')[0]);
     if (!isOwner && !isReseller && !isCourier) return m.reply(mess.owner);
 
-    if (!text) return m.reply(`Masukkan ID Order. Contoh: ${cmd} ORD-123456`);
+    if (!text) return m.reply(`Masukkan ID Order.`);
     const order = crm.orders.find(o => o.id === text.trim());
     
     if (!order) return m.reply("Order tidak ditemukan.");
+    if (order.status !== "Pending") return m.reply(`Order sudah diproses dengan status: ${order.status}`);
     
     order.status = "Diantar";
+    order.courierId = m.sender.split('@')[0]; // Assign courier
     saveCrmData(crm);
-    m.reply(`✅ Order ${order.id} status diubah menjadi *Diantar*.`);
-    sock.sendMessage(order.customerId, { text: `🚚 Pesanan Anda ${order.id} sedang diantar ke lokasi!` });
     
-    // Notify Owner if Courier Updated
+    // Replace simple reply with button
+    let btnMsg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: `✅ Berhasil mengambil antrian pengantaran untuk Order ${order.id}.\n\n${order.amount}x ${order.item} \n\nSegera antar ke: ${order.address}` },
+                    footer: { text: "Panel Kurir" },
+                    nativeFlowMessage: {
+                        buttons: [
+                            {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "✅ Selesai (Sudah Sampai)",
+                                    id: `.selesai ${order.id}`
+                                })
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    
+    sock.relayMessage(m.chat, btnMsg.message, { messageId: btnMsg.key.id });
+    sock.sendMessage(order.customerId, { text: `🚚 Pesanan Anda ${order.amount}x ${order.item} sedang diantar oleh kurir ${m.pushName || "kami"}!` });
+    
     if (isCourier) {
-        sock.sendMessage(global.owner + "@s.whatsapp.net", { text: `ℹ️ Info: Kurir ${m.pushName || m.sender.split('@')[0]} mengantar pesanan ${order.id}.` });
+        sock.sendMessage(global.owner + "@s.whatsapp.net", { text: `ℹ️ Info: Kurir ${m.pushName || m.sender.split('@')[0]} mengambil antrian pesanan ${order.id} untuk ${order.customerName} dengan pemesanan ${order.amount}x ${order.item}.` });
     }
+}
+break;
+
+case "myantrian": {
+    const crm = loadCrmData();
+    const courierId = m.sender.split('@')[0];
+    const isCourier = crm.couriers && crm.couriers.includes(courierId);
+    if (!isOwner && !isCourier) return m.reply(mess.owner);
+    
+    const myQueue = crm.orders.filter(o => o.status === "Diantar" && o.courierId === courierId);
+    
+    if (myQueue.length === 0) return m.reply("Anda tidak memiliki antrian pengantaran aktif.");
+    
+    let list = `🚚 *ANTRIAN PENGANTARAN SAYA*\n`;
+    const orderRows = myQueue.map(o => ({
+         header: `ID: ${o.id}`,
+         title: `${o.customerName} - ${o.address}`,
+         description: `Item: ${o.amount}x ${o.item} | Tagihan: Rp${o.total.toLocaleString()}`,
+         id: `.manageorder ${o.id}` 
+    }));
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: "Berikut daftar barang yang harus Anda antar sekarang:" },
+                    footer: { text: "Panel Kurir" },
+                    header: { title: "🚚 TUGAS PENGANTARAN", subtitle: "", hasMediaAttachment: false },
+                    nativeFlowMessage: {
+                        buttons: [
+                            {
+                                name: "single_select",
+                                buttonParamsJson: JSON.stringify({
+                                    title: "Pilih Tugas",
+                                    sections: [{
+                                        title: "Antrian Aktif",
+                                        rows: orderRows
+                                    }]
+                                })
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+
 }
 break;
 
@@ -860,7 +951,7 @@ case "selesai": {
     order.status = "Selesai";
     saveCrmData(crm);
     m.reply(`✅ Order ${order.id} status diubah menjadi *Selesai*.`);
-    sock.sendMessage(order.customerId, { text: `✅ Pesanan Anda ${order.id} telah selesai diantar. Terima kasih!` });
+    sock.sendMessage(order.customerId, { text: `✅ Pesanan Anda ${order.amount}x ${order.item} telah selesai diantar. Terima kasih!` });
     
     // Notify Owner if Courier Updated
     if (isCourier) {
