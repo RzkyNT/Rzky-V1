@@ -6,7 +6,15 @@
       "address": "Blok U1 No 7",
       "phone": "62895602416781",
       "joined": "2025-12-07T09:44:09.485Z",
-      "orders_count": 2
+      "orders_count": 7
+    },
+    "6285710938401@s.whatsapp.net": {
+      "id": "6285710938401@s.whatsapp.net",
+      "name": "Lilis",
+      "address": "VGB BLOK A1 NOMOR 59",
+      "phone": "6285710938401",
+      "joined": "2025-12-07T11:02:54.100Z",
+      "orders_count": 1
     }
   },
   "orders": [
@@ -29,18 +37,103 @@
       "item": "Galon Baru + Isi",
       "amount": 8,
       "total": 280000,
-      "status": "Pending",
+      "status": "Selesai",
       "date": "2025-12-07T10:10:54.639Z"
+    },
+    {
+      "id": "ORD-14816383",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizqi",
+      "address": "Blok U1 No 7",
+      "item": "Galon Isi Ulang",
+      "amount": 2,
+      "total": 10000,
+      "status": "Dibatalkan",
+      "date": "2025-12-07T10:42:28.163Z"
+    },
+    {
+      "id": "ORD-15685376",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizqi",
+      "address": "Blok U1 No 7",
+      "item": "Galon Isi Ulang",
+      "amount": 9,
+      "total": 45000,
+      "status": "Selesai",
+      "date": "2025-12-07T10:42:36.853Z"
+    },
+    {
+      "id": "ORD-54460319",
+      "customerId": "6285710938401@s.whatsapp.net",
+      "customerName": "Lilis",
+      "address": "VGB BLOK A1 NOMOR 59",
+      "item": "Galon Isi Ulang",
+      "amount": 3,
+      "total": 15000,
+      "status": "Selesai",
+      "date": "2025-12-07T11:05:44.604Z"
+    },
+    {
+      "id": "ORD-70636061",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizqi",
+      "address": "Blok U1 No 7",
+      "item": "Galon Isi Ulang",
+      "amount": 4,
+      "total": 20000,
+      "status": "Selesai",
+      "date": "2025-12-07T11:08:26.360Z"
+    },
+    {
+      "id": "ORD-3350247",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizqi",
+      "address": "Blok U1 No 7",
+      "item": "Galon Isi Ulang",
+      "amount": 3,
+      "total": 15000,
+      "status": "Selesai",
+      "date": "2025-12-07T11:18:55.024Z"
+    },
+    {
+      "id": "ORD-80307733",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizqi",
+      "address": "Blok U1 No 7",
+      "item": "Tuker Gas LPG 3kg",
+      "amount": 2,
+      "total": 44000,
+      "status": "Diantar",
+      "date": "2025-12-07T11:26:43.077Z"
+    },
+    {
+      "id": "ORD-18251330",
+      "customerId": "OFFLINE",
+      "customerName": "Walk-in Customer",
+      "address": "-",
+      "item": "Isi Ulang (Galon Le Mineral)",
+      "amount": 5,
+      "total": 25000,
+      "status": "Selesai",
+      "date": "2025-12-07T11:33:02.513Z"
     }
   ],
   "products": [
     {
-      "name": "Galon Isi Ulang",
+      "name": "Isi Ulang (Galon Aqua)",
+      "price": 6500
+    },
+    {
+      "name": "Isi Ulang (Galon Le Mineral)",
       "price": 5000
     },
     {
-      "name": "Galon Baru + Isi",
-      "price": 35000
+      "name": "Tuker Gas LPG 3kg",
+      "price": 22000
     }
+  ],
+  "couriers": [
+    "6289602792988",
+    "62895602416781"
   ]
 }

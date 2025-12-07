@@ -181,13 +181,13 @@ const crmFile = "./data/crm_data.json";
 function loadCrmData() {
     try {
         if (!fs.existsSync(crmFile)) {
-             const initData = { customers: {}, orders: [], products: [{ name: "Galon Isi Ulang", price: 5000 }, { name: "Galon Baru + Isi", price: 35000 }] };
+             const initData = { customers: {}, orders: [], products: [{ name: "Galon Isi Ulang", price: 5000 }, { name: "Galon Baru + Isi", price: 35000 }], couriers: [] };
              fs.writeFileSync(crmFile, JSON.stringify(initData, null, 2));
              return initData;
         }
         return JSON.parse(fs.readFileSync(crmFile));
     } catch (err) {
-        return { customers: {}, orders: [], products: [] };
+        return { customers: {}, orders: [], products: [], couriers: [] };
     }
 }
 
@@ -289,45 +289,68 @@ if (fs.existsSync(grupResellerFile)) {
 function saveGrupReseller() {
     fs.writeFileSync(grupResellerFile, JSON.stringify(grupReseller, null, 2));
 }
-//=============================================//
 
 switch (command) {
-// CRM COMMANDS
+// === CRM CUSTOMER SECTION ===
 case "daftar": {
     const crm = loadCrmData();
     if (crm.customers[m.sender]) return m.reply(`Anda sudah terdaftar sebagai: ${crm.customers[m.sender].name}`);
-    if (!text) return m.reply(`Silakan mendaftar dengan format:\n${cmd} Nama | Alamat\n\nContoh: ${cmd} Budi | Jl. Mawar No 1`);
     
-    const [nama, alamat] = text.split("|").map(x => x.trim());
-    if (!nama || !alamat) return m.reply("Format salah. Mohon gunakan format: Nama | Alamat");
+    // Start Registration Session
+    if (!global.registrationSession) global.registrationSession = {};
+    global.registrationSession[m.sender] = { step: "WAITING_NAME" };
     
-    crm.customers[m.sender] = {
-        id: m.sender,
-        name: nama,
-        address: alamat,
-        phone: m.sender.split('@')[0],
-        joined: new Date().toISOString(),
-        orders_count: 0
-    };
-    saveCrmData(crm);
-    m.reply(`✅ Terima kasih, ${nama}! Pendaftaran berhasil.\nAnda sekarang bisa memesan air galon dengan perintah .order`);
-    }
-    break;
+    m.reply("👤 Silakan reply pesan ini dengan *Nama Lengkap* Anda untuk mendaftar.");
+}
+break;
 
 case "order":
 case "pesan": {
     const crm = loadCrmData();
     if (!crm.customers[m.sender]) return m.reply(`Anda belum terdaftar. Silakan daftar dulu dengan perintah:\n.daftar Nama | Alamat`);
-    
+
     if (!text) {
-        let list = `📋 *DAFTAR PRODUK*\n`;
-        crm.products.forEach((p, i) => {
-            list += `${i+1}. ${p.name} - Rp${p.price.toLocaleString()}\n`;
-        });
-        list += `\nCara pesan:\n${cmd} <jumlah> <nama_produk/nomor_produk>\nContoh: ${cmd} 2 Galon Isi Ulang`;
-        return m.reply(list);
+        // Interactive Product List using Native Flow
+        const products = crm.products.map((p, i) => ({
+             header: p.name,
+             title: `Rp${p.price.toLocaleString()}`,
+             description: "Klik untuk memilih produk ini",
+             id: `.orderquantity ${i}` 
+        }));
+
+        let msg = generateWAMessageFromContent(m.chat, {
+            viewOnceMessage: {
+                message: {
+                    messageContextInfo: {
+                        deviceListMetadata: {},
+                        deviceListMetadataVersion: 2
+                    },
+                    interactiveMessage: {
+                        body: { text: "Silahkan pilih produk yang ingin dipesan:" },
+                        footer: { text: "Depot Minhaqua" },
+                        header: { title: "🛒 LIST PRODUK", subtitle: "", hasMediaAttachment: false },
+                        nativeFlowMessage: {
+                            buttons: [
+                                {
+                                    name: "single_select",
+                                    buttonParamsJson: JSON.stringify({
+                                        title: "Pilih Produk Disini",
+                                        sections: [{
+                                            title: "Produk Air",
+                                            rows: products
+                                        }]
+                                    })
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }, { userJid: m.sender, quoted: m });
+        return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
     }
     
+    // Fallback Manual Logic (if user types manually)
     let amount = parseInt(text.split(" ")[0]);
     if (isNaN(amount) || amount < 1) return m.reply("Jumlah pesanan tidak valid.");
     
@@ -369,6 +392,126 @@ case "pesan": {
     }
     break;
 
+case "orderquantity": {
+    const crm = loadCrmData();
+    const idx = parseInt(text);
+    if (!crm.products[idx]) return m.reply("Produk tidak valid.");
+    const product = crm.products[idx];
+
+    let buttons = [];
+    for (let i = 1; i <= 10; i++) {
+         buttons.push({
+             name: "quick_reply",
+             buttonParamsJson: JSON.stringify({
+                 display_text: `${i} Buah`,
+                 id: `.orderconfirm ${idx} ${i}`
+             })
+         });
+    }
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: `Anda memilih: *${product.name}*\nHarga: Rp${product.price.toLocaleString()}\n\nSilakan pilih jumlah pesanan:` },
+                    footer: { text: "Depot Minhaqua" },
+                    nativeFlowMessage: {
+                        buttons: buttons,
+                         messageParamsJson: JSON.stringify({
+                             from_flow: true // sometimes needed for scrolling buttons
+                         }) // Baileys might not support scroling buttons natively in simple quick_reply array but let's try standard quick_reply
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    
+    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+}
+break;
+
+case "orderconfirm": {
+    const [idxStr, amountStr] = text.split(" ");
+    const amount = parseInt(amountStr);
+    const idx = parseInt(idxStr);
+    const crm = loadCrmData();
+    const product = crm.products[idx];
+
+    if (!product || isNaN(amount)) return m.reply("Data pesanan error.");
+
+    // Reuse existing logic by calling the main order command text manually or duplicating logic.
+    // simpler to duplicate logic for clarity here or redirect.
+    // Let's copy-paste the core logic for now to ensure it works without recursion issues
+    
+    const total = amount * product.price;
+    const orderId = generateOrderId();
+    
+    const newOrder = {
+        id: orderId,
+        customerId: m.sender,
+        customerName: crm.customers[m.sender].name,
+        address: crm.customers[m.sender].address,
+        item: product.name,
+        amount: amount,
+        total: total,
+        status: "Pending",
+        date: new Date().toISOString()
+    };
+    
+    crm.orders.push(newOrder);
+    crm.customers[m.sender].orders_count += 1;
+    saveCrmData(crm);
+    
+    m.reply(`✅ Pesanan Diterima!\nID: ${orderId}\nItem: ${amount}x ${product.name}\nTotal: Rp${total.toLocaleString()}\nAlamat: ${crm.customers[m.sender].address}\n\nMohon tunggu kurir kami akan segera mengirim pesanan Anda.`);
+    
+    // Notify Owner and Couriers
+    const ownerJid = global.owner + "@s.whatsapp.net";
+    const orderMsg = `🔔 *PESANAN BARU*\n\nDari: ${newOrder.customerName}\nItem: ${amount}x ${product.name}\nTotal: Rp${total.toLocaleString()}\nAlamat: ${newOrder.address}\nID: ${orderId}`;
+    
+    sock.sendMessage(ownerJid, { text: orderMsg });
+    
+    // Notify Couriers
+    if (crm.couriers && crm.couriers.length > 0) {
+        crm.couriers.forEach(async courier => {
+            const courierJid = courier + "@s.whatsapp.net";
+            
+            let btnMsg = generateWAMessageFromContent(courierJid, {
+                viewOnceMessage: {
+                    message: {
+                        messageContextInfo: {
+                            deviceListMetadata: {},
+                            deviceListMetadataVersion: 2
+                        },
+                        interactiveMessage: {
+                            body: { text: orderMsg },
+                            footer: { text: "Panel Depot Minhaqua" },
+                            nativeFlowMessage: {
+                                buttons: [
+                                    {
+                                        name: "quick_reply",
+                                        buttonParamsJson: JSON.stringify({
+                                            display_text: "🚀 Antar Sekarang",
+                                            id: `.antar ${orderId}`
+                                        })
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }, { userJid: courierJid });
+            
+            await sock.relayMessage(courierJid, btnMsg.message, { messageId: btnMsg.key.id });
+        });
+    }
+
+}
+break;
+
 case "addproduk": {
     if (!isOwner) return m.reply(mess.owner);
     if (!text) return m.reply(`Format: ${cmd} Nama Produk | Harga\nContoh: ${cmd} Galon Cuci | 3000`);
@@ -398,6 +541,57 @@ case "delproduk": {
     }
     break;
 
+// === COURIER MANAGEMENT ===
+case "addkurir": {
+    if (!isOwner) return m.reply(mess.owner);
+    if (!text) return m.reply(`Format: ${cmd} 628xxx (Nomor WA)`);
+    
+    let number = text.replace(/[^0-9]/g, "");
+    if (!number.startsWith("62")) number = "62" + number.replace(/^0+/, "");
+    
+    const crm = loadCrmData();
+    if (!crm.couriers) crm.couriers = [];
+    
+    if (crm.couriers.includes(number)) return m.reply("Nomor sudah menjadi kurir.");
+    
+    crm.couriers.push(number);
+    saveCrmData(crm);
+    m.reply(`✅ Kurir berhasil ditambahkan: ${number}`);
+}
+break;
+
+case "delkurir": {
+    if (!isOwner) return m.reply(mess.owner);
+    if (!text) return m.reply(`Format: ${cmd} 628xxx`);
+    
+    let number = text.replace(/[^0-9]/g, "");
+    if (!number.startsWith("62")) number = "62" + number.replace(/^0+/, "");
+    
+    const crm = loadCrmData();
+    if (!crm.couriers) crm.couriers = [];
+    
+    const idx = crm.couriers.indexOf(number);
+    if (idx === -1) return m.reply("Nomor tidak ditemukan di daftar kurir.");
+    
+    crm.couriers.splice(idx, 1);
+    saveCrmData(crm);
+    m.reply(`✅ Kurir berhasil dihapus: ${number}`);
+}
+break;
+
+case "listkurir": {
+    if (!isOwner) return m.reply(mess.owner);
+    const crm = loadCrmData();
+    if (!crm.couriers || crm.couriers.length === 0) return m.reply("Belum ada kurir terdaftar.");
+    
+    let list = `🚚 *DAFTAR KURIR*\n`;
+    crm.couriers.forEach((c, i) => {
+        list += `${i+1}. wa.me/${c}\n`;
+    });
+    m.reply(list);
+}
+break;
+
 case "listproduk":
 case "produk": 
 case "harga": {
@@ -418,48 +612,225 @@ case "statusorder": {
     
     if (myOrders.length === 0) return m.reply("Anda tidak memiliki pesanan aktif saat ini.");
     
-    let cek = `🔍 *STATUS PESANAN ANDA*\n`;
-    myOrders.forEach(o => {
-        cek += `\n🆔 ID: ${o.id}\n📦 Item: ${o.amount}x ${o.item}\n💰 Total: Rp${o.total.toLocaleString()}\n🚚 Status: *${o.status}*\n📅 Tgl: ${o.date.split('T')[0]}\n`;
-    });
-    m.reply(cek);
+    // Interactive List for Customer to View/Cancel Orders
+    const orderRows = myOrders.map(o => ({
+         header: `ID: ${o.id}`,
+         title: `${o.amount}x ${o.item}`,
+         description: `Status: ${o.status} | Rp${o.total.toLocaleString()}`,
+         id: `.statusdetail ${o.id}` 
+    }));
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: "Berikut adalah pesanan aktif Anda. Klik untuk melihat detail atau membatalkan." },
+                    footer: { text: "Depot Minhaqua" },
+                    header: { title: "🔍 STATUS PESANAN", subtitle: "", hasMediaAttachment: false },
+                    nativeFlowMessage: {
+                        buttons: [
+                            {
+                                name: "single_select",
+                                buttonParamsJson: JSON.stringify({
+                                    title: "Pilih Pesanan",
+                                    sections: [{
+                                        title: "Pesanan Saya",
+                                        rows: orderRows
+                                    }]
+                                })
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+}
+break;
+
+case "statusdetail": {
+    const orderId = text.trim();
+    const crm = loadCrmData();
+    const order = crm.orders.find(o => o.id === orderId && o.customerId === m.sender);
+
+    if (!order) return m.reply("Pesanan tidak ditemukan.");
+
+    let buttons = [];
+    if (order.status === "Pending") {
+         buttons.push({
+             name: "quick_reply",
+             buttonParamsJson: JSON.stringify({
+                 display_text: "❌ Batalkan Pesanan",
+                 id: `.batalorder ${orderId}`
+             })
+         });
+    } else {
+         buttons.push({
+             name: "cta_url", // Just visual, cannot cancel
+             buttonParamsJson: JSON.stringify({
+                 display_text: "Hubungi Admin",
+                 url: `https://wa.me/${global.owner}`
+             })
+         });
     }
-    break;
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: `📋 *DETAIL PESANAN*\n\n🆔 ID: ${order.id}\n📦 Item: ${order.amount}x ${order.item}\n💰 Total: Rp${order.total.toLocaleString()}\n🚚 Status: *${order.status}*\n📅 Tanggal: ${order.date.split('T')[0]}\n📍 Alamat: ${order.address}` },
+                    footer: { text: "Depot Minhaqua" },
+                    nativeFlowMessage: {
+                         buttons: buttons,
+                         messageParamsJson: JSON.stringify({
+                             from_flow: true 
+                         })
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    
+    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+}
+break;
 
 case "batalorder": {
-    if (!text) return m.reply(`Masukkan ID Order yang ingin dibatalkan. Contoh: ${cmd} ORD-123456`);
-    const crm = loadCrmData();
-    const orderIdx = crm.orders.findIndex(o => o.id === text.trim() && o.customerId === m.sender);
+    const orderId = text.trim();
+    if (!orderId) return m.reply(`Masukkan ID Order.`);
     
-    if (orderIdx === -1) return m.reply("Pesanan tidak ditemukan atau bukan milik Anda.");
+    const crm = loadCrmData();
+    const orderIdx = crm.orders.findIndex(o => o.id === orderId && o.customerId === m.sender);
+    
+    if (orderIdx === -1) return m.reply("Pesanan tidak ditemukan.");
     if (crm.orders[orderIdx].status !== "Pending") return m.reply("Pesanan tidak dapat dibatalkan karena sudah diproses/selesai.");
     
     crm.orders[orderIdx].status = "Dibatalkan";
     saveCrmData(crm);
-    m.reply("✅ Pesanan berhasil dibatalkan.");
+    m.reply(`✅ Pesanan ${orderId} berhasil dibatalkan.`);
     }
     break;
 
-// === ADMIN CRM COMMANDS ===
+// === ADMIN & COURIER CRM COMMANDS ===
 case "listorder": {
-    if (!isOwner && !isReseller) return m.reply(mess.owner); // Reseller dianggap staff/admin
     const crm = loadCrmData();
+    const isCourier = crm.couriers && crm.couriers.includes(m.sender.split('@')[0]);
+    if (!isOwner && !isReseller && !isCourier) return m.reply(mess.owner); // Reseller dianggap staff/admin
+
     const activeOrders = crm.orders.filter(o => o.status === "Pending" || o.status === "Diantar");
     
     if (activeOrders.length === 0) return m.reply("Tidak ada pesanan aktif.");
+
+    // Interactive List for Admin/Courier
+    const orderRows = activeOrders.map(o => ({
+         header: `ID: ${o.id}`,
+         title: `${o.customerName} (${o.item} x${o.amount})`,
+         description: `Status: ${o.status} | Rp${o.total.toLocaleString()} | ${o.address}`,
+         id: `.manageorder ${o.id}` 
+    }));
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: "Berikut daftar pesanan aktif yang perlu diproses:" },
+                    footer: { text: "Admin/Kurir Panel Depot Minhaqua" },
+                    header: { title: "📋 KELOLA PESANAN", subtitle: "", hasMediaAttachment: false },
+                    nativeFlowMessage: {
+                        buttons: [
+                            {
+                                name: "single_select",
+                                buttonParamsJson: JSON.stringify({
+                                    title: "Pilih Pesanan",
+                                    sections: [{
+                                        title: "Pesanan Aktif",
+                                        rows: orderRows
+                                    }]
+                                })
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+}
+break;
+
+case "manageorder": {
+    const crm = loadCrmData();
+    const isCourier = crm.couriers && crm.couriers.includes(m.sender.split('@')[0]);
+    if (!isOwner && !isReseller && !isCourier) return m.reply(mess.owner);
+
+    if (!text) return m.reply("ID Order missing.");
     
-    let list = `📋 *DAFTAR PESANAN AKTIF*\n`;
-    activeOrders.forEach(o => {
-        list += `\n🆔 ID: ${o.id}\n👤 Nama: ${o.customerName}\n📦 Item: ${o.amount}x ${o.item}\n📍 Alamat: ${o.address}\n🚚 Status: *${o.status}*\n`;
-    });
-    m.reply(list);
-    }
-    break;
+    const orderId = text.trim();
+    const order = crm.orders.find(o => o.id === orderId);
+
+    if (!order) return m.reply("Order tidak ditemukan.");
+
+    let buttons = [
+        {
+             name: "quick_reply",
+             buttonParamsJson: JSON.stringify({
+                 display_text: "🚚 Kirim (Antar)",
+                 id: `.antar ${orderId}`
+             })
+        },
+        {
+             name: "quick_reply",
+             buttonParamsJson: JSON.stringify({
+                 display_text: "✅ Selesai",
+                 id: `.selesai ${orderId}`
+             })
+        }
+    ];
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: `Detail Pesanan\n\nID: ${order.id}\nNama: ${order.customerName}\nAlamat: ${order.address}\nItem: ${order.amount}x ${order.item}\nTotal: Rp${order.total.toLocaleString()}\nStatus: *${order.status}*\n\nPilih Tindakan:` },
+                    footer: { text: "Panel Depot Minhaqua" },
+                    nativeFlowMessage: {
+                         buttons: buttons,
+                         messageParamsJson: JSON.stringify({
+                             from_flow: true 
+                         })
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    
+    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+}
+break;
 
 case "antar": {
-    if (!isOwner && !isReseller) return m.reply(mess.owner);
-    if (!text) return m.reply(`Masukkan ID Order. Contoh: ${cmd} ORD-123456`);
     const crm = loadCrmData();
+    const isCourier = crm.couriers && crm.couriers.includes(m.sender.split('@')[0]);
+    if (!isOwner && !isReseller && !isCourier) return m.reply(mess.owner);
+
+    if (!text) return m.reply(`Masukkan ID Order. Contoh: ${cmd} ORD-123456`);
     const order = crm.orders.find(o => o.id === text.trim());
     
     if (!order) return m.reply("Order tidak ditemukan.");
@@ -468,13 +839,20 @@ case "antar": {
     saveCrmData(crm);
     m.reply(`✅ Order ${order.id} status diubah menjadi *Diantar*.`);
     sock.sendMessage(order.customerId, { text: `🚚 Pesanan Anda ${order.id} sedang diantar ke lokasi!` });
+    
+    // Notify Owner if Courier Updated
+    if (isCourier) {
+        sock.sendMessage(global.owner + "@s.whatsapp.net", { text: `ℹ️ Info: Kurir ${m.pushName || m.sender.split('@')[0]} mengantar pesanan ${order.id}.` });
     }
-    break;
+}
+break;
 
 case "selesai": {
-    if (!isOwner && !isReseller) return m.reply(mess.owner);
-    if (!text) return m.reply(`Masukkan ID Order. Contoh: ${cmd} ORD-123456`);
     const crm = loadCrmData();
+    const isCourier = crm.couriers && crm.couriers.includes(m.sender.split('@')[0]);
+    if (!isOwner && !isReseller && !isCourier) return m.reply(mess.owner);
+
+    if (!text) return m.reply(`Masukkan ID Order. Contoh: ${cmd} ORD-123456`);
     const order = crm.orders.find(o => o.id === text.trim());
     
     if (!order) return m.reply("Order tidak ditemukan.");
@@ -483,8 +861,13 @@ case "selesai": {
     saveCrmData(crm);
     m.reply(`✅ Order ${order.id} status diubah menjadi *Selesai*.`);
     sock.sendMessage(order.customerId, { text: `✅ Pesanan Anda ${order.id} telah selesai diantar. Terima kasih!` });
+    
+    // Notify Owner if Courier Updated
+    if (isCourier) {
+        sock.sendMessage(global.owner + "@s.whatsapp.net", { text: `ℹ️ Info: Kurir ${m.pushName || m.sender.split('@')[0]} menyelesaikan pesanan ${order.id}.` });
     }
-    break;
+}
+break;
 
 case "listcust": {
     if (!isOwner) return m.reply(mess.owner);
@@ -500,6 +883,167 @@ case "listcust": {
     m.reply(txt);
     }
     break;
+
+// === POS SYSTEM (OWNER) ===
+case "pos": {
+    if (!isOwner) return m.reply(mess.owner);
+    const crm = loadCrmData();
+    const today = new Date().toISOString().split('T')[0];
+    const todayOrders = crm.orders.filter(o => o.date.startsWith(today) && o.status === 'Selesai');
+    const totalRevenue = todayOrders.reduce((acc, curr) => acc + curr.total, 0);
+
+    let btnMsg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: `🏪 *POINT OF SALE - DEPOT MINHAQUA*\n\n📅 Tanggal: ${today}\n💰 Omset Hari Ini: Rp${totalRevenue.toLocaleString()}\n📝 Transaksi Selesai: ${todayOrders.length}` },
+                    footer: { text: "POS System" },
+                    nativeFlowMessage: {
+                        buttons: [
+                            {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "🛒 Input Transaksi",
+                                    id: ".posinput"
+                                })
+                            },
+                             {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "👥 Data Pelanggan",
+                                    id: ".listcust"
+                                })
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    
+    return sock.relayMessage(m.chat, btnMsg.message, { messageId: btnMsg.key.id });
+}
+break;
+
+case "posinput": {
+    if (!isOwner) return m.reply(mess.owner);
+    const crm = loadCrmData();
+    // Reuse product list logic but for POS
+    const products = crm.products.map((p, i) => ({
+         header: p.name,
+         title: `Rp${p.price.toLocaleString()}`,
+         id: `.posqty ${i}` 
+    }));
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: "Pilih produk untuk transaksi manual:" },
+                    footer: { text: "POS System" },
+                    header: { title: "🛒 POS ORDER", subtitle: "", hasMediaAttachment: false },
+                    nativeFlowMessage: {
+                        buttons: [
+                            {
+                                name: "single_select",
+                                buttonParamsJson: JSON.stringify({
+                                    title: "Pilih Produk",
+                                    sections: [{
+                                        title: "Daftar Produk",
+                                        rows: products
+                                    }]
+                                })
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+}
+break;
+
+case "posqty": {
+    if (!isOwner) return m.reply(mess.owner);
+    const idx = parseInt(text);
+    const crm = loadCrmData();
+    if (!crm.products[idx]) return m.reply("Produk invalid");
+    const product = crm.products[idx];
+
+    let buttons = [];
+    for (let i = 1; i <= 5; i++) {
+         buttons.push({
+             name: "quick_reply",
+             buttonParamsJson: JSON.stringify({
+                 display_text: `${i}`,
+                 id: `.posconfirm ${idx} ${i}`
+             })
+         });
+    }
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: `Produk: ${product.name}\nHarga: Rp${product.price.toLocaleString()}\nPilih Jumlah:` },
+                    footer: { text: "POS System" },
+                    nativeFlowMessage: {
+                        buttons: buttons,
+                         messageParamsJson: JSON.stringify({
+                             from_flow: true 
+                         })
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+}
+break;
+
+case "posconfirm": {
+    if (!isOwner) return m.reply(mess.owner);
+    const [idxStr, amountStr] = text.split(" ");
+    const amount = parseInt(amountStr);
+    const idx = parseInt(idxStr);
+    const crm = loadCrmData();
+    const product = crm.products[idx];
+    
+    const total = amount * product.price;
+    const orderId = generateOrderId();
+    
+    // Auto-create simplified order
+    const newOrder = {
+        id: orderId,
+        customerId: "OFFLINE",
+        customerName: "Walk-in Customer",
+        address: "-",
+        item: product.name,
+        amount: amount,
+        total: total,
+        status: "Selesai", // Direct sale usually completed
+        date: new Date().toISOString()
+    };
+    
+    crm.orders.push(newOrder);
+    saveCrmData(crm);
+    
+    m.reply(`✅ *TRANSAKSI BERHASIL* (POS)\n\nItem: ${amount}x ${product.name}\nTotal: Rp${total.toLocaleString()}\nStatus: Lunas / Selesai`);
+}
+break;
 
 case "mane":
 case "menu":{
@@ -5256,6 +5800,36 @@ if (m.text.startsWith('$')) {
             return sock.sendMessage(m.chat, { text: util.format(stdout) }, { quoted: m });
         }
     });
+}
+
+// Registration Session Handler
+if (global.registrationSession && global.registrationSession[m.sender]) {
+    const session = global.registrationSession[m.sender];
+    if (session.step === "WAITING_NAME") {
+        if (!m.body) return m.reply("Mohon kirim nama Anda (teks).");
+        session.name = m.body;
+        session.step = "WAITING_ADDRESS";
+        return m.reply(`Halo ${session.name}, sekarang silakan kirim alamat lengkap Anda.`);
+    } else if (session.step === "WAITING_ADDRESS") {
+        if (!m.body) return m.reply("Mohon kirim alamat Anda (teks).");
+        const address = m.body;
+        const name = session.name;
+        
+        // Save to CRM
+        const crm = loadCrmData();
+        crm.customers[m.sender] = {
+            id: m.sender,
+            name: name,
+            address: address,
+            phone: m.sender.split("@")[0],
+            joined: new Date().toISOString(),
+            orders_count: 0
+        };
+        saveCrmData(crm);
+        
+        delete global.registrationSession[m.sender];
+        return m.reply(`✅ Pendaftaran Berhasil!\nNama: ${name}\nAlamat: ${address}\n\nSilakan ketik order untuk melanjutkan pemesanan.`);
+    }
 }
 
 // AI & Responder ( Moved from top to prevent double response )
