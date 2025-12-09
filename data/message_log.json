@@ -1,0 +1,31 @@
+{
+  "sent": [
+    {
+      "id": "1765126986113_cpc3aau0f",
+      "jid": "62895602416781@s.whatsapp.net",
+      "type": "owner_notification",
+      "orderId": "ORD-22326045",
+      "timestamp": "2025-12-07T17:03:08.397Z",
+      "attempts": 1
+    },
+    {
+      "id": "1765144377118_ga5lyqftx",
+      "jid": "62895602416781@s.whatsapp.net",
+      "type": "owner_notification",
+      "orderId": "ORD-24255286",
+      "timestamp": "2025-12-07T21:52:57.415Z",
+      "attempts": 1
+    }
+  ],
+  "failed": [
+    {
+      "id": "1765126986101_8xfomuhhp",
+      "jid": "6289602792988@s.whatsapp.net",
+      "type": "manual_reminder",
+      "orderId": "ORD-22326045",
+      "error": "Invalid media type",
+      "timestamp": "2025-12-07T17:03:11.408Z",
+      "attempts": 3
+    }
+  ]
+}

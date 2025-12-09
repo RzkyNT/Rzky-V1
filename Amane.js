@@ -16,6 +16,7 @@ const youtube = require("./storage/youtube.js");
 const aiChat = require("./storage/openai.js");
 const geminiChat = require("./storage/gemini.js");
 const messageQueue = require("./lib/messageQueue.js");
+const orderReminder = require("./lib/orderReminder.js");
 
 const { exec, spawn, execSync } = require('child_process');
 const { prepareWAMessageMedia, generateWAMessageFromContent } = require("@whiskeysockets/baileys");
@@ -52,6 +53,12 @@ if (isCmd) {
 console.log(chalk.red("☎ Pengirim ⪼"), chalk.green(m.chat) + "\n" + chalk.red("💌 Pesan ⪼"), chalk.green(cmd) + "\n")
 }
 
+// Initialize Order Reminder System (only once)
+if (!global.reminderSystemStarted) {
+    orderReminder.start(sock, loadCrmData, generateWAMessageFromContent);
+    global.reminderSystemStarted = true;
+    console.log(chalk.green("✅ Order Reminder System initialized"));
+}
 
 
 //=============================================//
@@ -1029,6 +1036,13 @@ case "statusdetail": {
                  id: `.batalorder ${orderId}`
              })
          });
+         buttons.push({
+             name: "quick_reply",
+             buttonParamsJson: JSON.stringify({
+                 display_text: "🔔 Reminder Kurir",
+                 id: `.remindkurir ${orderId}`
+             })
+         });
     } else {
          buttons.push({
              name: "cta_url", // Just visual, cannot cancel
@@ -1079,6 +1093,86 @@ case "batalorder": {
     m.reply(`✅ Pesanan ${orderId} berhasil dibatalkan.`);
     }
     break;
+
+case "remindkurir": {
+    const orderId = text.trim();
+    if (!orderId) return m.reply(`Masukkan ID Order.`);
+    
+    const crm = loadCrmData();
+    const order = crm.orders.find(o => o.id === orderId && o.customerId === m.sender);
+    
+    if (!order) return m.reply("Pesanan tidak ditemukan.");
+    if (order.status !== "Menunggu") return m.reply("Pesanan sudah diproses oleh kurir.");
+    
+    // Send manual reminder to all couriers
+    if (!crm.couriers || crm.couriers.length === 0) {
+        return m.reply("Maaf, saat ini tidak ada kurir yang tersedia. Kami akan segera menindaklanjuti pesanan Anda.");
+    }
+    
+    let remindersSent = 0;
+    for (const courierNum of crm.couriers) {
+        const courierJid = courierNum + "@s.whatsapp.net";
+        
+        let msg = generateWAMessageFromContent(courierJid, {
+            viewOnceMessage: {
+                message: {
+                    messageContextInfo: {
+                        deviceListMetadata: {},
+                        deviceListMetadataVersion: 2
+                    },
+                    interactiveMessage: {
+                        body: { 
+                            text: `🔔 *REMINDER DARI CUSTOMER*\n\n` +
+                                  `Customer menunggu pesanan ini:\n\n` +
+                                  `ID: ${order.id}\n` +
+                                  `Area: ${order.address}\n` +
+                                  `Item: ${order.item}\n` +
+                                  `Total: Rp${order.total.toLocaleString()}\n\n` +
+                                  `⚠️ Mohon segera diambil!`
+                        },
+                        footer: { text: "Depot Minhaqua" },
+                        nativeFlowMessage: {
+                            buttons: [
+                                {
+                                    name: "quick_reply",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: "📦 Ambil Antrian",
+                                        id: `.ambilantrian ${order.id}`
+                                    })
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }, { userJid: courierJid });
+        
+        // For interactive messages, use relayMessage directly with delay
+        try {
+            await sock.relayMessage(courierJid, msg.message, { messageId: msg.key.id });
+            remindersSent++;
+            // Delay to avoid rate limit
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (error) {
+            console.error(`[RemindKurir] Failed to send to ${courierNum}:`, error.message);
+        }
+    }
+    
+    m.reply(`✅ Reminder telah dikirim ke ${remindersSent} kurir. Mohon tunggu sebentar, kurir kami akan segera mengambil pesanan Anda.`);
+    
+    // Notify owner about manual reminder using messageQueue
+    const ownerJid = global.owner + "@s.whatsapp.net";
+    messageQueue.add(
+        sock,
+        ownerJid,
+        { text: `ℹ️ Customer ${order.customerName} mengirim reminder manual untuk order ${order.id}` },
+        {},
+        'owner_notification',
+        order.id
+    );
+}
+break;
+
 
 // === ADMIN & COURIER CRM COMMANDS ===
 case "listorder": {
@@ -1458,12 +1552,33 @@ case "listcust": {
     break;
 
 // === POS SYSTEM (OWNER) ===
+// === ENHANCED POS SYSTEM ===
 case "pos": {
     if (!isOwner) return m.reply(mess.owner);
     const crm = loadCrmData();
     const today = new Date().toISOString().split('T')[0];
     const todayOrders = crm.orders.filter(o => o.date.startsWith(today) && o.status === 'Selesai');
     const totalRevenue = todayOrders.reduce((acc, curr) => acc + curr.total, 0);
+    
+    // Calculate additional stats
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    const monthOrders = crm.orders.filter(o => o.date.startsWith(thisMonth) && o.status === 'Selesai');
+    const monthRevenue = monthOrders.reduce((acc, curr) => acc + curr.total, 0);
+    const pendingOrders = crm.orders.filter(o => o.status === 'Menunggu').length;
+    
+    // Top product today
+    const productCount = {};
+    todayOrders.forEach(o => {
+        if (o.items) {
+            o.items.forEach(item => {
+                productCount[item.name] = (productCount[item.name] || 0) + item.qty;
+            });
+        } else if (o.item) {
+            productCount[o.item] = (productCount[o.item] || 0) + o.amount;
+        }
+    });
+    const topProduct = Object.entries(productCount).sort((a, b) => b[1] - a[1])[0];
+    const topProductText = topProduct ? `${topProduct[0]} (${topProduct[1]}x)` : "-";
 
     let btnMsg = generateWAMessageFromContent(m.chat, {
         viewOnceMessage: {
@@ -1473,18 +1588,36 @@ case "pos": {
                     deviceListMetadataVersion: 2
                 },
                 interactiveMessage: {
-                    body: { text: `🏪 *POINT OF SALE - DEPOT MINHAQUA*\n\n📅 Tanggal: ${today}\n💰 Omset Hari Ini: Rp${totalRevenue.toLocaleString()}\n📝 Transaksi Selesai: ${todayOrders.length}` },
-                    footer: { text: "POS System" },
+                    body: { 
+                        text: `🏪 *POINT OF SALE - DEPOT MINHAQUA*\n\n` +
+                              `📅 *HARI INI (${today})*\n` +
+                              `💰 Omset: Rp${totalRevenue.toLocaleString()}\n` +
+                              `📝 Transaksi: ${todayOrders.length}\n` +
+                              `🔥 Terlaris: ${topProductText}\n\n` +
+                              `📊 *BULAN INI*\n` +
+                              `💵 Total: Rp${monthRevenue.toLocaleString()}\n` +
+                              `📦 Transaksi: ${monthOrders.length}\n\n` +
+                              `⏳ *PENDING*\n` +
+                              `🚚 Order Menunggu: ${pendingOrders}`
+                    },
+                    footer: { text: "POS System v2.0" },
                     nativeFlowMessage: {
                         buttons: [
                             {
                                 name: "quick_reply",
                                 buttonParamsJson: JSON.stringify({
-                                    display_text: "🛒 Input Transaksi",
+                                    display_text: "🛒 Transaksi Baru",
                                     id: ".posinput"
                                 })
                             },
-                             {
+                            {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "📊 Laporan Lengkap",
+                                    id: ".posreport"
+                                })
+                            },
+                            {
                                 name: "quick_reply",
                                 buttonParamsJson: JSON.stringify({
                                     display_text: "👥 Data Pelanggan",
@@ -1502,14 +1635,82 @@ case "pos": {
 }
 break;
 
+case "posreport": {
+    if (!isOwner) return m.reply(mess.owner);
+    const crm = loadCrmData();
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    
+    const todayOrders = crm.orders.filter(o => o.date.startsWith(today) && o.status === 'Selesai');
+    const yesterdayOrders = crm.orders.filter(o => o.date.startsWith(yesterday) && o.status === 'Selesai');
+    const monthOrders = crm.orders.filter(o => o.date.startsWith(thisMonth) && o.status === 'Selesai');
+    
+    const todayRev = todayOrders.reduce((acc, o) => acc + o.total, 0);
+    const yesterdayRev = yesterdayOrders.reduce((acc, o) => acc + o.total, 0);
+    const monthRev = monthOrders.reduce((acc, o) => acc + o.total, 0);
+    
+    const growth = yesterdayRev > 0 ? (((todayRev - yesterdayRev) / yesterdayRev) * 100).toFixed(1) : 0;
+    const growthIcon = growth >= 0 ? "📈" : "📉";
+    
+    // Average order value
+    const avgOrder = todayOrders.length > 0 ? (todayRev / todayOrders.length).toFixed(0) : 0;
+    
+    // Product breakdown
+    const productSales = {};
+    monthOrders.forEach(o => {
+        if (o.items) {
+            o.items.forEach(item => {
+                if (!productSales[item.name]) {
+                    productSales[item.name] = { qty: 0, revenue: 0 };
+                }
+                productSales[item.name].qty += item.qty;
+                productSales[item.name].revenue += item.price * item.qty;
+            });
+        } else if (o.item) {
+            if (!productSales[o.item]) {
+                productSales[o.item] = { qty: 0, revenue: 0 };
+            }
+            productSales[o.item].qty += o.amount;
+            productSales[o.item].revenue += o.total;
+        }
+    });
+    
+    let productBreakdown = "";
+    Object.entries(productSales)
+        .sort((a, b) => b[1].revenue - a[1].revenue)
+        .slice(0, 5)
+        .forEach(([name, data], i) => {
+            productBreakdown += `${i+1}. ${name}\n   ${data.qty}x | Rp${data.revenue.toLocaleString()}\n`;
+        });
+    
+    const report = `📊 *LAPORAN PENJUALAN LENGKAP*\n\n` +
+                   `📅 *HARI INI (${today})*\n` +
+                   `💰 Revenue: Rp${todayRev.toLocaleString()}\n` +
+                   `📝 Transaksi: ${todayOrders.length}\n` +
+                   `💵 Rata-rata: Rp${avgOrder}\n` +
+                   `${growthIcon} Growth: ${growth}%\n\n` +
+                   `📅 *KEMARIN*\n` +
+                   `💰 Revenue: Rp${yesterdayRev.toLocaleString()}\n` +
+                   `📝 Transaksi: ${yesterdayOrders.length}\n\n` +
+                   `📅 *BULAN INI*\n` +
+                   `💰 Revenue: Rp${monthRev.toLocaleString()}\n` +
+                   `📝 Transaksi: ${monthOrders.length}\n\n` +
+                   `🔥 *TOP 5 PRODUK BULAN INI*\n${productBreakdown || "-"}\n` +
+                   `📍 Total Customer: ${Object.keys(crm.customers).length}`;
+    
+    m.reply(report);
+}
+break;
+
 case "posinput": {
     if (!isOwner) return m.reply(mess.owner);
     const crm = loadCrmData();
-    // Reuse product list logic but for POS
     const products = crm.products.map((p, i) => ({
          header: p.name,
          title: `Rp${p.price.toLocaleString()}`,
-         id: `.posqty ${i}` 
+         description: "Tap untuk pilih",
+         id: `.posadditem ${i}` 
     }));
 
     let msg = generateWAMessageFromContent(m.chat, {
@@ -1520,9 +1721,9 @@ case "posinput": {
                     deviceListMetadataVersion: 2
                 },
                 interactiveMessage: {
-                    body: { text: "Pilih produk untuk transaksi manual:" },
-                    footer: { text: "POS System" },
-                    header: { title: "🛒 POS ORDER", subtitle: "", hasMediaAttachment: false },
+                    body: { text: "🛒 *TRANSAKSI BARU*\n\nPilih produk untuk ditambahkan ke keranjang POS:" },
+                    footer: { text: "POS System - Depot Minhaqua" },
+                    header: { title: "💳 KASIR", subtitle: "", hasMediaAttachment: false },
                     nativeFlowMessage: {
                         buttons: [
                             {
@@ -1545,23 +1746,20 @@ case "posinput": {
 }
 break;
 
-case "posqty": {
+case "posadditem": {
     if (!isOwner) return m.reply(mess.owner);
     const idx = parseInt(text);
     const crm = loadCrmData();
     if (!crm.products[idx]) return m.reply("Produk invalid");
     const product = crm.products[idx];
 
-    let buttons = [];
-    for (let i = 1; i <= 5; i++) {
-         buttons.push({
-             name: "quick_reply",
-             buttonParamsJson: JSON.stringify({
-                 display_text: `${i}`,
-                 id: `.posconfirm ${idx} ${i}`
-             })
-         });
-    }
+    let buttons = [
+        { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "1", id: `.posqty ${idx} 1` }) },
+        { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "2", id: `.posqty ${idx} 2` }) },
+        { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "3", id: `.posqty ${idx} 3` }) },
+        { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "5", id: `.posqty ${idx} 5` }) },
+        { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "10", id: `.posqty ${idx} 10` }) }
+    ];
 
     let msg = generateWAMessageFromContent(m.chat, {
         viewOnceMessage: {
@@ -1571,13 +1769,160 @@ case "posqty": {
                     deviceListMetadataVersion: 2
                 },
                 interactiveMessage: {
-                    body: { text: `Produk: ${product.name}\nHarga: Rp${product.price.toLocaleString()}\nPilih Jumlah:` },
+                    body: { text: `📦 *${product.name}*\n💰 Harga: Rp${product.price.toLocaleString()}\n\nPilih jumlah:` },
                     footer: { text: "POS System" },
                     nativeFlowMessage: {
                         buttons: buttons,
-                         messageParamsJson: JSON.stringify({
-                             from_flow: true 
-                         })
+                        messageParamsJson: JSON.stringify({ from_flow: true })
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+}
+break;
+
+case "posqty": {
+    if (!isOwner) return m.reply(mess.owner);
+    const [idxStr, qtyStr] = text.split(" ");
+    const idx = parseInt(idxStr);
+    const qty = parseInt(qtyStr);
+    const crm = loadCrmData();
+    const product = crm.products[idx];
+    
+    if (!product) return m.reply("Produk tidak ditemukan");
+    
+    // Initialize POS cart
+    if (!global.posCart) global.posCart = {};
+    if (!global.posCart[m.sender]) global.posCart[m.sender] = [];
+    
+    // Add to cart
+    const existingItem = global.posCart[m.sender].find(item => item.idx === idx);
+    if (existingItem) {
+        existingItem.qty += qty;
+    } else {
+        global.posCart[m.sender].push({ idx, name: product.name, price: product.price, qty });
+    }
+    
+    // Calculate cart total
+    const cartTotal = global.posCart[m.sender].reduce((acc, item) => acc + (item.price * item.qty), 0);
+    const cartItems = global.posCart[m.sender].map(item => `${item.qty}x ${item.name}`).join(", ");
+    
+    let buttons = [
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "➕ Tambah Produk Lain",
+                id: ".posinput"
+            })
+        },
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "💳 Checkout",
+                id: ".poscheckout"
+            })
+        },
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "🗑️ Batal",
+                id: ".posclear"
+            })
+        }
+    ];
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { 
+                        text: `✅ *DITAMBAHKAN KE KERANJANG*\n\n` +
+                              `${qty}x ${product.name}\n\n` +
+                              `🛒 *KERANJANG SAAT INI:*\n${cartItems}\n\n` +
+                              `💰 *TOTAL: Rp${cartTotal.toLocaleString()}*`
+                    },
+                    footer: { text: "POS System" },
+                    nativeFlowMessage: {
+                        buttons: buttons,
+                        messageParamsJson: JSON.stringify({ from_flow: true })
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+}
+break;
+
+case "posclear": {
+    if (!isOwner) return m.reply(mess.owner);
+    if (global.posCart && global.posCart[m.sender]) {
+        delete global.posCart[m.sender];
+        m.reply("🗑️ Keranjang POS berhasil dikosongkan.");
+    } else {
+        m.reply("Keranjang sudah kosong.");
+    }
+}
+break;
+
+case "poscheckout": {
+    if (!isOwner) return m.reply(mess.owner);
+    if (!global.posCart || !global.posCart[m.sender] || global.posCart[m.sender].length === 0) {
+        return m.reply("Keranjang kosong. Gunakan .posinput untuk memulai transaksi.");
+    }
+    
+    const cart = global.posCart[m.sender];
+    const total = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+    const itemList = cart.map(item => `${item.qty}x ${item.name}`).join(", ");
+    
+    let buttons = [
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "💵 Tunai",
+                id: ".posconfirm COD"
+            })
+        },
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "💳 Transfer",
+                id: ".posconfirm Transfer"
+            })
+        },
+        {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({
+                display_text: "📱 E-Wallet",
+                id: ".posconfirm E-Wallet"
+            })
+        }
+    ];
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { 
+                        text: `💳 *CHECKOUT*\n\n` +
+                              `🛒 Item: ${itemList}\n` +
+                              `💰 Total: Rp${total.toLocaleString()}\n\n` +
+                              `Pilih metode pembayaran:`
+                    },
+                    footer: { text: "POS System" },
+                    nativeFlowMessage: {
+                        buttons: buttons,
+                        messageParamsJson: JSON.stringify({ from_flow: true })
                     }
                 }
             }
@@ -1589,32 +1934,67 @@ break;
 
 case "posconfirm": {
     if (!isOwner) return m.reply(mess.owner);
-    const [idxStr, amountStr] = text.split(" ");
-    const amount = parseInt(amountStr);
-    const idx = parseInt(idxStr);
-    const crm = loadCrmData();
-    const product = crm.products[idx];
+    const paymentMethod = text || "COD";
     
-    const total = amount * product.price;
+    if (!global.posCart || !global.posCart[m.sender] || global.posCart[m.sender].length === 0) {
+        return m.reply("Keranjang kosong/kadaluarsa. Silakan mulai transaksi baru.");
+    }
+    
+    const cart = global.posCart[m.sender];
+    const crm = loadCrmData();
+    const total = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+    const itemDetails = cart.map(i => `${i.qty}x ${i.name}`).join(", ");
     const orderId = generateOrderId();
     
-    // Auto-create simplified order
+    // Create order
     const newOrder = {
         id: orderId,
         customerId: "OFFLINE",
         customerName: "Walk-in Customer",
-        address: "-",
-        item: product.name,
-        amount: amount,
+        address: "Toko",
+        item: itemDetails,
+        items: cart,
+        amount: cart.reduce((acc, i) => acc + i.qty, 0),
         total: total,
-        status: "Selesai", // Direct sale usually completed
+        paymentMethod: paymentMethod,
+        status: "Selesai",
         date: new Date().toISOString()
     };
     
     crm.orders.push(newOrder);
     saveCrmData(crm);
     
-    m.reply(`✅ *TRANSAKSI BERHASIL* (POS)\n\nItem: ${amount}x ${product.name}\nTotal: Rp${total.toLocaleString()}\nStatus: Lunas / Selesai`);
+    // Clear cart
+    delete global.posCart[m.sender];
+    
+    // Generate receipt
+    const now = new Date();
+    const receiptTime = now.toLocaleTimeString('id-ID');
+    const receiptDate = now.toLocaleDateString('id-ID');
+    
+    let receipt = `╔═══════════════════════╗\n`;
+    receipt += `║   DEPOT MINHAQUA      ║\n`;
+    receipt += `║   STRUK PEMBAYARAN    ║\n`;
+    receipt += `╚═══════════════════════╝\n\n`;
+    receipt += `📅 ${receiptDate} ${receiptTime}\n`;
+    receipt += `🆔 ${orderId}\n`;
+    receipt += `━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    
+    cart.forEach(item => {
+        const itemTotal = item.price * item.qty;
+        receipt += `${item.name}\n`;
+        receipt += `  ${item.qty} x Rp${item.price.toLocaleString()}\n`;
+        receipt += `  = Rp${itemTotal.toLocaleString()}\n\n`;
+    });
+    
+    receipt += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    receipt += `TOTAL: Rp${total.toLocaleString()}\n`;
+    receipt += `Pembayaran: ${paymentMethod}\n`;
+    receipt += `━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    receipt += `Terima kasih atas kunjungan Anda!\n`;
+    receipt += `Semoga puas dengan pelayanan kami 🙏`;
+    
+    m.reply(receipt);
 }
 break;
 
@@ -6809,40 +7189,56 @@ Jawablah sebagai MinBot:`;
                             
                             finalBody += `\n\n✅ *Pesanan Otomatis Diproses!*\nID: ${orderId}\n${fullOrderSummary}\nTotal: Rp${total.toLocaleString()}\n\n💵 Bayar saat kurir datang (COD).`;
                             
-                            // Notify owner & couriers
+                            // Notify owner using messageQueue for reliability
                             const ownerJid = global.owner + "@s.whatsapp.net";
-                            sock.sendMessage(ownerJid, { text: `🔔 *PESANAN BARU (AUTO)*\n\nDari: ${newOrder.customerName}\n${fullOrderSummary}\nTotal: Rp${total.toLocaleString()}\nID: ${orderId}` });
+                            messageQueue.add(
+                                sock,
+                                ownerJid,
+                                { text: `🔔 *PESANAN BARU (AUTO)*\n\nDari: ${newOrder.customerName}\n${fullOrderSummary}\nTotal: Rp${total.toLocaleString()}\nID: ${orderId}` },
+                                {},
+                                'auto_order_notification',
+                                orderId
+                            );
                             
+                            // Notify couriers with delay to avoid rate limit
                             if (crm.couriers && crm.couriers.length > 0) {
-                                crm.couriers.forEach(async (courierNum) => {
-                                    const courierJid = courierNum + "@s.whatsapp.net";
-                                    let btnMsg = generateWAMessageFromContent(courierJid, {
-                                        viewOnceMessage: {
-                                            message: {
-                                                messageContextInfo: {
-                                                    deviceListMetadata: {},
-                                                    deviceListMetadataVersion: 2
-                                                },
-                                                interactiveMessage: {
-                                                    body: { text: `🔔 *ORDER BARU (AUTO)*\n\nArea: ${newOrder.address}\nItem: ${itemDetails}\nTotal: Rp${newOrder.total.toLocaleString()}` },
-                                                    footer: { text: "Panel Depot Minhaqua" },
-                                                    nativeFlowMessage: {
-                                                        buttons: [
-                                                            {
-                                                                name: "quick_reply",
-                                                                buttonParamsJson: JSON.stringify({
-                                                                    display_text: "📦 Ambil Antrian",
-                                                                    id: `.ambilantrian ${orderId}`
-                                                                })
-                                                            }
-                                                        ]
+                                (async () => {
+                                    for (const courierNum of crm.couriers) {
+                                        const courierJid = courierNum + "@s.whatsapp.net";
+                                        let btnMsg = generateWAMessageFromContent(courierJid, {
+                                            viewOnceMessage: {
+                                                message: {
+                                                    messageContextInfo: {
+                                                        deviceListMetadata: {},
+                                                        deviceListMetadataVersion: 2
+                                                    },
+                                                    interactiveMessage: {
+                                                        body: { text: `🔔 *ORDER BARU (AUTO)*\n\nArea: ${newOrder.address}\nItem: ${itemDetails}\nTotal: Rp${newOrder.total.toLocaleString()}` },
+                                                        footer: { text: "Panel Depot Minhaqua" },
+                                                        nativeFlowMessage: {
+                                                            buttons: [
+                                                                {
+                                                                    name: "quick_reply",
+                                                                    buttonParamsJson: JSON.stringify({
+                                                                        display_text: "📦 Ambil Antrian",
+                                                                        id: `.ambilantrian ${orderId}`
+                                                                    })
+                                                                }
+                                                            ]
+                                                        }
                                                     }
                                                 }
                                             }
+                                        }, { userJid: courierJid });
+                                        
+                                        try {
+                                            await sock.relayMessage(courierJid, btnMsg.message, { messageId: btnMsg.key.id });
+                                            await new Promise(resolve => setTimeout(resolve, 1000));
+                                        } catch (error) {
+                                            console.error(`[AutoOrder] Failed to notify courier ${courierNum}:`, error.message);
                                         }
-                                    }, { userJid: courierJid });
-                                    await sock.relayMessage(courierJid, btnMsg.message, { messageId: btnMsg.key.id });
-                                });
+                                    }
+                                })();
                             }
                         }
                     } else {
