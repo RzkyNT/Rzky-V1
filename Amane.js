@@ -2127,12 +2127,6 @@ Silahkan pilih menu dibawah ini
             }
         }
     }, { quoted: quoted.packSticker });
-    await sleep(1000)
-    sock.sendMessage(m.chat, {
-        audio: fs.readFileSync('./amaneofc/mane.mp3'),
-        mimetype: 'audio/mp4',
-        ptt: true
-    }, { quoted: m })
 }
 break
 case 'allmenuvid': {
@@ -2300,13 +2294,6 @@ Berikut beberapa kemampuan saya :
                 }
             }
         }, { quoted: quoted.packSticker });
-
-        const audioMessage = {
-            audio: fs.readFileSync('./amaneofc/mane.mp3'),
-            mimetype: 'audio/mp4',
-            ptt: true,
-        };
-        await sock.sendMessage(m.chat, audioMessage, { quoted: m });
 
     } catch (error) {
         console.error("Error saat mengirim menu 'allmenumane':", error);
@@ -2696,12 +2683,6 @@ Halo @${m.sender.split("@")[0]},
             }
         }
     }, { quoted: quoted.packSticker });
-    await sleep(1000)
-    sock.sendMessage(m.chat, {
-        audio: fs.readFileSync('./amaneofc/amane.mp3'),
-        mimetype: 'audio/mp4',
-        ptt: true
-    }, { quoted: m })
 }
 break
 case "allmenuv2": {
