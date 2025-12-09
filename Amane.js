@@ -2064,7 +2064,7 @@ Silahkan pilih menu dibawah ini
                                         },
                                         { 
                                             title: `@Whatsapp Developer ${global.namaOwner}`,
-                                            description: `${global.wa.me}`,
+                                            description: `${global.wame}`,
                                             id: "row_2"
                                         }
                                     ]
@@ -3980,6 +3980,41 @@ case "tourl": {
     }, { userJid: m.sender, quoted: m });
 
     await sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+}
+break;
+
+case "upload": {
+    if (!/image|video|audio|application|text/.test(mime))
+        return m.reply(`Media tidak ditemukan!\nKirim atau reply media kemudian ketik *${cmd}*`);
+
+    try {
+        const { fromBuffer } = require('file-type');
+        const mediaBuffer = await (m.quoted ? m.quoted.download() : m.download());
+        if (!mediaBuffer) return m.reply("Gagal mengunduh media, coba lagi.");
+
+        const detected = await fromBuffer(mediaBuffer);
+        let ext = (detected?.ext || mime?.split('/')?.[1] || 'bin').toLowerCase();
+        ext = ext.replace(/[^a-z0-9]/gi, '') || 'bin';
+
+        const imageExts = new Set(["jpg","jpeg","png","gif","bmp","webp","svg","heic","heif"]);
+        const videoExts = new Set(["mp4","mkv","mov","avi","wmv","flv","webm","3gp","wav","mp3","aac","ogg","m4a"]);
+
+        const baseDir = path.join(__dirname, 'storage', 'files');
+        if (!fs.existsSync(baseDir)) fs.mkdirSync(baseDir, { recursive: true });
+
+        let folderName = imageExts.has(ext) ? 'image' : videoExts.has(ext) ? 'video' : ext;
+        const targetDir = path.join(baseDir, folderName);
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+
+        const fileName = `${Date.now()}_${m.sender.split("@")[0]}.${ext}`;
+        const fullPath = path.join(targetDir, fileName);
+        fs.writeFileSync(fullPath, mediaBuffer);
+
+        return m.reply(`Media berhasil disimpan ✅\nFolder: *${folderName}*\nNama File: *${fileName}*\nLokasi: ${fullPath}`);
+    } catch (err) {
+        console.error("Upload Error:", err);
+        return m.reply("Terjadi kesalahan saat menyimpan media.");
+    }
 }
 break;
 
