@@ -22,8 +22,8 @@ global.thumbnail2 = "https://rizqiahsansetiawan.ct.ws/assets/img/about.jpg"
 
 global.dana = "0895602416781"
 global.qris = "Tidak Tersedia"
-global.rekBca = "1234567890 (RIZQI AHSAN)"
-global.rekBri = "0987654321 (RIZQI AHSAN)"
+global.rekBca = "Tidak Tersedia"
+global.rekBri = "Tidak Tersedia"
 
 global.JedaPushkontak = 8000
 global.JedaJpm = 7000
