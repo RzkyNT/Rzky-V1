@@ -6,6 +6,7 @@ const chalk = require("chalk");
 const fs = require("fs");
 
 global.owner = "62895602416781"
+global.wa.me = "wa.me/62895602416781"
 global.version = "4.0.0"
 global.dev = "IG: Rzky.NT"
 global.namaOwner = "RzkyNT"

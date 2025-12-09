@@ -1,7 +1,3 @@
-/*
-Script Created By © Amane Ofc
-Please don't delete Credits!!
-*/
 const util = require("util");
 const chalk = require("chalk");
 const fs = require("fs");
@@ -2016,15 +2012,6 @@ Silahkan pilih menu dibawah ini
 ➤ .allmenu (button) 
 ➤ .allmenuv2 (no button) 
 `
-// ╭▢ *THANKS TO*
-// │Amane Ofc (Dev) 
-// │RzkyNT (Dev2) 
-// │Neon Ofc (Wakil dev) 
-// │Panze (Wakil Dev) 
-// │ALL pengguna Sc ini
-// ╰▢`
-// ➤  ｢ *INFORMASI UPDATE SCRIPT* ｣ 
-// https://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d`
         await sock.sendMessage(m.chat, {
         interactiveMessage: {
             title: menu, 
@@ -2071,13 +2058,13 @@ Silahkan pilih menu dibawah ini
                                     highlight_label: "label",
                                     rows: [
                                         {
-                                            title: "@Saluran WhatsApp Amane 👇🏻", 
-                                            description: "https://whatsapp.com/channel/0029VbAu2g6ATRSpePrpSp3L\n\nhttps://whatsapp.com/channel/0029VbB7WPzAYlUQFsoSwS0d\n\nhttps://whatsapp.com/channel/0029VbB8uqX1XquUjnzo2G2r\n\n> Jangan Lupa Follow Agar Tidak Ketinggalan Tentang Update Script Store Terbaru.",
+                                            title: `@Saluran WhatsApp ${global.namaOwner} 👇🏻`, 
+                                            description: `${global.linkSaluran}\n\nJangan Lupa Follow Agar Tidak Ketinggalan Tentang Update Aplikasi Terbaru.`,
                                             id: "row_1"
                                         },
                                         { 
-                                            title: "@Whatsapp Developer",
-                                            description: "wa.me/6289529161314",
+                                            title: `@Whatsapp Developer ${global.namaOwner}`,
+                                            description: `${global.wa.me}`,
                                             id: "row_2"
                                         }
                                     ]
@@ -2470,7 +2457,7 @@ businessMessageForwardInfo: { businessOwnerJid: global.owner+"@s.whatsapp.net" }
 return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
 }
 break
-case "amane":
+case "rzky":
 case "allmenu":{
 let menu = `
 ${global.ucapan()}
@@ -2908,7 +2895,7 @@ const os = require('os');
 break
 case "bratvid":
 case "neon": {
-if (!text) return m.reply(`*Contoh:* ${cmd} hallo aku Amane!`)
+if (!text) return m.reply(`*Contoh:* ${cmd} hallo aku ${global.namaOwner}!`)
 var media = await getBuffer(`https://api.siputzx.my.id/api/m/brat?text=${text}&isAnimated=true&delay=500`)
 await sock.sendStimg(m.chat, media, m, {packname: "RzkyNT"})
 }
@@ -3207,7 +3194,7 @@ case "ssweb": {
 
         await sock.sendMessage(m.chat, {
             image: buffer,
-            caption: `✅ Screenshot berhasil diambil!\n\n🌐 URL: ${targetUrl}\n📸 Powered by Amane API`
+            caption: `✅ Screenshot berhasil diambil!\n\n🌐 URL: ${targetUrl}\n📸 Powered by ${global.namaOwner} API`
         }, { quoted: m })
 
     } catch (err) {
@@ -4395,8 +4382,8 @@ case "emojimix": {
 
         const buffer = Buffer.from(response.data)
         await sock.sendStimg(m.chat, buffer, m, {
-            packname: "Amane.",
-            author: "EmojiMix Bot"
+            packname: "RzkyNT",
+            author: "RzkyNT Bot"
         })
     } catch (err) {
         console.error("EmojiMix Error:", err)
@@ -4405,7 +4392,7 @@ case "emojimix": {
 }
 break;
 case "brat": {
-    if (!text) return m.reply(`📜 *Contoh:* ${cmd} Hallo Aku Amane!`);
+    if (!text) return m.reply(`📜 *Contoh:* ${cmd} Hallo Aku ${global.namaOwner}!`);
 
     try {
         const apiUrl = `https://sitesfyxzpedia-api.vercel.app/imagecreator/bratv?apikey=Fyxz&text=${encodeURIComponent(text)}`;
@@ -4697,13 +4684,13 @@ break
 
 case "savekontak": case "svkontak": {
 if (!isOwner) return m.reply(mess.owner)
-if (!text) return m.reply(`Masukan namakontak\n*Contoh :* ${cmd} Amane`)
+if (!text) return m.reply(`Masukan namakontak\n*Contoh :* ${cmd} ${global.namaOwner}`)
 global.namakontak = text
 let rows = []
 const a = await sock.groupFetchAllParticipating()
 if (a.length < 1) return m.reply("Tidak ada grup chat.")
 const Data = Object.values(a)
-let number = 0
+let number = 0 
 for (let u of Data) {
 const name = u.subject || "Unknown"
 rows.push({
@@ -5782,12 +5769,12 @@ break;
 
 case "cadmin": {
     if (!isOwner) return m.reply(mess.owner);
-    if (!text) return m.reply(`Masukan username & nomor (opsional)\n*contoh:* ${cmd} Amane,628XXX`)
+    if (!text) return m.reply(`Masukan username & nomor (opsional)\n*contoh:* ${cmd} ${global.namaOwner},628XXX`)
     let nomor, usernem;
     const tek = text.split(",");
     if (tek.length > 1) {
         let [users, nom] = tek;
-        if (!users || !nom) return m.reply(`Masukan username & nomor (opsional)\n*contoh:* ${cmd} Amane,628XXX`)
+        if (!users || !nom) return m.reply(`Masukan username & nomor (opsional)\n*contoh:* ${cmd} ${global.namaOwner},628XXX`)
 
         nomor = nom.replace(/[^0-9]/g, "") + "@s.whatsapp.net";
         usernem = users.toLowerCase();
