@@ -29,7 +29,7 @@ const {
     proto,
     delay, 
     Browsers
-} = require("@whiskeysockets/baileys");
+} = require("baileys");
 
 const pino = require("pino");
 const { Boom } = require("@hapi/boom");
@@ -80,10 +80,10 @@ const database = new DataBase();
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState("Session");
-    const pairingCode = false;
+    const pairingCode = true;
 
     const sock = makeWASocket({
-        browser: Browsers.ubuntu("Chrome"), 
+        browser: ["Ubuntu", "Chrome", "20.0.00"],
         generateHighQualityLinkPreview: true,
         printQRInTerminal: !pairingCode,
         auth: state,

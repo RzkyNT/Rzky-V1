@@ -6,6 +6,7 @@ const fetch = require("node-fetch");
 const ssh2 = require("ssh2");
 const path = require("path");
 const Yts = require("yt-search");
+const os = require('os');
 const tiktok = require("./storage/tiktok.js");
 const remini = require("./storage/remini.js");
 const youtube = require("./storage/youtube.js");
@@ -27,8 +28,8 @@ const mime = quoted?.msg?.mimetype || quoted?.mimetype || null
 const args = m.body.trim().split(/ +/).slice(1)
 const qmsg = (m.quoted || m)
 const text = q = args.join(" ")
-const command = m.body ? (m.body.startsWith(m.prefix) ? m.body.slice(m.prefix.length).trim().split(' ').shift().toLowerCase() : m.body.trim().split(' ').shift().toLowerCase()) : ''
-const cmd = isCmd ? m.prefix + command : command
+const command = isCmd ? m.body.slice(m.prefix.length).trim().split(' ').shift().toLowerCase() : ''
+const cmd = m.prefix + command
 const botNumber = await sock.user.id.split(":")[0]+"@s.whatsapp.net"
 const isOwner = global.owner+"@s.whatsapp.net" == m.sender || m.sender == botNumber || db.settings.developer.includes(m.sender)
 const isReseller = db.settings.reseller.includes(m.sender)
@@ -113,7 +114,7 @@ const FakeSticker = {
         },
         message: {
             stickerPackMessage: {
-                stickerPackId: "\x00",
+                stickerPackId: "\x000",
                 name: `Powered By ${global.namaOwner}.`,
                 publisher: "kkkk"
             }
@@ -293,6 +294,7 @@ if (fs.existsSync(grupResellerFile)) {
 function saveGrupReseller() {
     fs.writeFileSync(grupResellerFile, JSON.stringify(grupReseller, null, 2));
 }
+//=============================================//
 
 switch (command) {
 // === CRM CUSTOMER SECTION ===
@@ -2206,7 +2208,6 @@ Berikut beberapa kemampuan saya :
 - .hdvid
 
 ➢ 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗠𝗘𝗡𝗨 
-- .alldown (Semua media) 
 - .mediafire
 - .tiktok
 - .tiktok2
@@ -2261,6 +2262,8 @@ Berikut beberapa kemampuan saya :
 - .upapikey
 
 ➢ 𝗢𝗪𝗡𝗘𝗥 𝗠𝗘𝗡𝗨
+- .delproduk
+- .addproduk
 - .delrespon
 - .addrespon
 - .bljpm
@@ -2313,6 +2316,7 @@ ${global.ucapan()}
  ▢ 𝗗𝗘𝗩𝗘𝗟𝗢𝗣𝗘𝗥: RzkyNT
 
  ➢ 𝗧𝗢𝗣 𝗚𝗔𝗡𝗜𝗘𝗥 𝗠𝗘𝗡𝗨
+- .listproduk
 - .done
 - .proses
 - .installpanel
@@ -2346,7 +2350,6 @@ ${global.ucapan()}
 - .hdvid
 
 ➢ 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗠𝗘𝗡𝗨 
-- .alldown (Semua media) 
 - .mediafire
 - .tiktok
 - .tiktok2
@@ -2401,6 +2404,8 @@ ${global.ucapan()}
 - .upapikey
 
 ➢ 𝗢𝗪𝗡𝗘𝗥 𝗠𝗘𝗡𝗨
+- .delproduk
+- .addproduk
 - .delrespon
 - .addrespon
 - .bljpm
@@ -2502,7 +2507,6 @@ Halo @${m.sender.split("@")[0]},
 - .hdvid
 
 ➢ 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗠𝗘𝗡𝗨 
-- .alldown (Semua media) 
 - .mediafire
 - .tiktok
 - .tiktok2
@@ -2742,7 +2746,6 @@ ${global.ucapan()}
 - .hdvid
 
 ➢ 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗠𝗘𝗡𝗨 
-- .alldown (Semua media) 
 - .mediafire
 - .tiktok
 - .tiktok2
@@ -2876,9 +2879,9 @@ const os = require('os');
 break
 case "bratvid":
 case "neon": {
-if (!text) return m.reply(`*Contoh:* ${cmd} hallo aku ${global.namaOwner}!`)
+if (!text) return m.reply(`*Contoh:* ${cmd} hallo aku Amane!`)
 var media = await getBuffer(`https://api.siputzx.my.id/api/m/brat?text=${text}&isAnimated=true&delay=500`)
-await sock.sendStimg(m.chat, media, m, {packname: "RzkyNT"})
+await sock.sendStimg(m.chat, media, m, {packname: "YT Amane Ofc"})
 }
 break
 case "openai": case "ai": {
@@ -3175,7 +3178,7 @@ case "ssweb": {
 
         await sock.sendMessage(m.chat, {
             image: buffer,
-            caption: `✅ Screenshot berhasil diambil!\n\n🌐 URL: ${targetUrl}\n📸 Powered by ${global.namaOwner} API`
+            caption: `✅ Screenshot berhasil diambil!\n\n🌐 URL: ${targetUrl}\n📸 Powered by Amane API`
         }, { quoted: m })
 
     } catch (err) {
@@ -4249,7 +4252,7 @@ case "jpmch": {
         mediaPath = await sock.downloadAndSaveMediaMessage(qmsg)
     }
     
-    const Channel = await sock.newsletterFetchAllParticipating()
+    const fetch = await sock.newsletterFetchAllParticipating()
     const channelList = Object.keys(Channel)
     if (!channelList || channelList.length < 1) return m.reply("Channel tidak ditemukan")
     let successCount = 0
@@ -5785,12 +5788,12 @@ break;
 
 case "cadmin": {
     if (!isOwner) return m.reply(mess.owner);
-    if (!text) return m.reply(`Masukan username & nomor (opsional)\n*contoh:* ${cmd} ${global.namaOwner},628XXX`)
+    if (!text) return m.reply(`Masukan username & nomor (opsional)\n*contoh:* ${cmd} Amane,628XXX`)
     let nomor, usernem;
     const tek = text.split(",");
     if (tek.length > 1) {
         let [users, nom] = tek;
-        if (!users || !nom) return m.reply(`Masukan username & nomor (opsional)\n*contoh:* ${cmd} ${global.namaOwner},628XXX`)
+        if (!users || !nom) return m.reply(`Masukan username & nomor (opsional)\n*contoh:* ${cmd} Amane,628XXX`)
 
         nomor = nom.replace(/[^0-9]/g, "") + "@s.whatsapp.net";
         usernem = users.toLowerCase();
@@ -6250,51 +6253,6 @@ if (!body.startsWith(prefix)) {
         }
     }
 }
-case "alldown":
-case "downr": {
- if (!text) return m.reply(`Link nya mana?!\nContoh: *${cmd} https://vt.tiktok.com/ZSygRMVNM/*`)
-
- await m.reply('Waitt! Loading download all download!')
-
- try {
- const { data } = await axios.post(
- 'https://downr.org/.netlify/functions/download',
- { url: text },
- {
- headers: {
- 'content-type': 'application/json',
- origin: 'https://downr.org',
- referer: 'https://downr.org/',
- 'user-agent': 
- 'Mozilla/5.0 (Linux; Android 15; SM-F958 Build/AP3A.240905.015) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.6723.86 Mobile Safari/537.36',
- }
- }
- );
-
- if (!data || !data.medias || !data.medias.length)
- return m.reply('E-eh? Aku gak nemu medianya nih... apa linknya salah?')
-
- const video = data.medias.find(v => v.quality === 'hd_no_watermark') || data.medias[0]
- const videoUrl = video.url
-
- await sock.sendMessage(
- m.chat,
- {
- video: { url: videoUrl },
- caption: `🎬 *${data.title || 'Berhasil kok!'}*\n👤 ${data.author || '-'}\n\nStatus Done✅`,
- mimetype: 'video/mp4',
- jpegThumbnail: data.thumbnail ? await getBuffer(data.thumbnail) : null
- },
- { quoted: m }
- );
-
- } catch (e) {
- console.error('Error downloader:', e)
- await m.reply(`A-apa?! Ada error nih...\n${e.message || e}`)
- }
-}
-break
-
 case "paustart2":
 case "paustad":
 case "pak-ustad2": {
@@ -6398,50 +6356,6 @@ Jangan bilang makasih berlebihan ya!! Bukan karena aku perhatian kok!! >///<`
  }
 
  m.reply(`A-ada kesalahan... 😖\n${err.message}`);
- }
-}
-break
-case 'reactch':
-case 'rch': {
- if (!isOwner) return m.reply(mess.owner);
- if (!text) return m.reply(`Contoh: ${cmd}reactch https://whatsapp.com/channel/xxxx 😂,😮,👍`)
-
-
- let [link, emoji] = text.includes('|') ? text.split('|') : text.split(' ')
-
- if (!link || !emoji) return m.reply(`Format salah!\nContoh:\n${cmd}reactch https://whatsapp.com/channel/xxxx 😂,😮,👍`)
-
- try {
- const res = await fetch(
- `https://react.whyux-xec.my.id/api/rch?link=${encodeURIComponent(link)}&emoji=${encodeURIComponent(emoji)}`,
- {
- method: "GET",
- headers: {
- "x-api-key": "211b9a4e520a973ba2e18d16d8e4e1ea021f822dd0e3322b46e9dcf72cd8ccb1"
- }
- }
- )
-
- // ambil mentah
- const raw = await res.text()
-
- // tampilkan raw di console (supaya tahu hasil asli API)
- console.log("RAW RESP:", raw)
-
- // coba parse json
- let json
- try {
- json = JSON.parse(raw)
- } catch {
- // API tidak kirim JSON tapi react tetap jalan
- return m.reply(`✅ *React Channel Berhasil!*\n(Non JSON response API)`)
- }
-
- // API tidak kirim status → kita langsung anggap success
- m.reply(`✅ *React Channel Berhasil!*\n• Link: ${link}\n• Emoji: ${emoji}`)
- 
- } catch (e) {
- m.reply(`❌ Error: ${e}`)
  }
 }
 break
@@ -6785,6 +6699,83 @@ case 'iqc': {
  } catch (error) {
  console.error('Error di iqc:', error);
  m.reply(`Error: ${error.message || 'Terjadi kesalahan saat memproses'}`);
+ }
+}
+break;					
+
+case "kecepatan": {
+ try {
+ const { execSync } = require("child_process");
+
+ // --- Latency & Uptime ---
+ const hrStart = process.hrtime.bigint(); 
+ const hrEnd = process.hrtime.bigint();
+ const latencyMs = Number(hrEnd - hrStart) / 1e6;
+ const uptimeStr = typeof runtime === 'function' ? runtime(process.uptime()) : `${Math.floor(process.uptime())}s`;
+ const now = tanggal ? tanggal(Date.now()) : new Date().toLocaleString();
+
+ // --- Memory / RAM ---
+ const osTotalRam = (os.totalmem() / 1024 / 1024).toFixed(2);
+ const osFreeRam = (os.freemem() / 1024 / 1024).toFixed(2);
+
+ const mem = process.memoryUsage();
+ const memUsedMB = (mem.rss / 1024 / 1024).toFixed(2);
+ const heapUsedMB = (mem.heapUsed / 1024 / 1024).toFixed(2);
+ const heapTotalMB = (mem.heapTotal / 1024 / 1024).toFixed(2);
+
+// --- Disk Info (AKURAT) ---
+let diskTotal = "N/A";
+let diskUsed = "N/A";
+let diskFree = "N/A";
+
+try {
+ // cek disk berdasarkan folder tempat bot dijalankan
+ const df = execSync("df -k .").toString().split("\n")[1].trim().split(/\s+/);
+
+ // df kolom: [Filesystem, 1K-blocks, Used, Available, Use%, Mounted]
+ diskTotal = (parseInt(df[1]) / 1024 / 1024).toFixed(2); // GB
+ diskUsed = (parseInt(df[2]) / 1024 / 1024).toFixed(2); // GB
+ diskFree = (parseInt(df[3]) / 1024 / 1024).toFixed(2); // GB
+} catch (e) {
+ console.log("Gagal membaca disk:", e);
+}
+
+ // --- CPU ---
+ const cpuModel = os.cpus && os.cpus()[0] ? os.cpus()[0].model : 'N/A';
+ const cpuCount = os.cpus ? os.cpus().length : 'N/A';
+ const platform = `${process.platform} ${process.arch}`;
+ const nodev = process.version;
+
+ const teks = `
+*📡 Server Information*
+- Runtime : ${uptimeStr}
+- Latency : ${latencyMs.toFixed(2)} ms
+- Time : ${now}
+
+*🧠 Memory (Process)*
+- RSS : ${memUsedMB} MB
+- Heap : ${heapUsedMB} / ${heapTotalMB} MB
+
+*💽 RAM (System)*
+- Total : ${osTotalRam} MB
+- Free : ${osFreeRam} MB
+
+*🗄️ Disk (System)*
+- Total : ${diskTotal} GB
+- Used : ${diskUsed} GB
+- Free : ${diskFree} GB
+
+*⚙️ System*
+- CPU : ${cpuModel} (${cpuCount} cores)
+- Platform : ${platform}
+- Node : ${nodev}
+`;
+
+ await m.reply(teks);
+
+ } catch (err) {
+ console.error(err);
+ m.reply(`Error saat mengecek ping:\n${err.message || String(err)}`);
  }
 }
 break;

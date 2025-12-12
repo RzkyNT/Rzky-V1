@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@hapi/boom": "^10.0.0",
-    "@whiskeysockets/baileys": "github:skyzopedia/Baileys",
+    "baileys": "github:kiuur/baileys",
     "awesome-phonenumber": "^2.64.0",
     "axios": "^0.24.0",
     "chalk": "^4.1.2",
@@ -16,7 +16,7 @@
     "child_process": "^1.0.2",
     "file-type": "^16.5.3",
     "fluent-ffmpeg": "^2.1.2",
-    "jimp": "^0.22.12",
+    "jimp": "^0.16.1",
     "link-preview-js": "^3.1.0",
     "moment-timezone": "^0.5.34",
     "mongoose": "^7.3.4",
