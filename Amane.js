@@ -16,7 +16,7 @@ const messageQueue = require("./lib/messageQueue.js");
 const orderReminder = require("./lib/orderReminder.js");
 
 const { exec, spawn, execSync } = require('child_process');
-const { prepareWAMessageMedia, generateWAMessageFromContent } = require("@whiskeysockets/baileys");
+const { prepareWAMessageMedia, generateWAMessageFromContent } = require("baileys");
 const LoadDataBase = require("./storage/LoadDatabase.js");
 
 module.exports = async (m, sock) => {
@@ -2128,7 +2128,7 @@ Silahkan pilih menu dibawah ini
                 ]
             }
         }
-    }, { quoted: quoted.packSticker });
+    }, { quoted: FakeChannel });
 }
 break
 case 'allmenuvid': {
@@ -2881,7 +2881,7 @@ case "bratvid":
 case "neon": {
 if (!text) return m.reply(`*Contoh:* ${cmd} hallo aku Amane!`)
 var media = await getBuffer(`https://api.siputzx.my.id/api/m/brat?text=${text}&isAnimated=true&delay=500`)
-await sock.sendStimg(m.chat, media, m, {packname: "YT Amane Ofc"})
+await sock.sendStimg(m.chat, media, m, {packname: "Rzky NT"})
 }
 break
 case "openai": case "ai": {

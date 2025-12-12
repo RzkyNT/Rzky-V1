@@ -12,9 +12,17 @@
     "628987060646@s.whatsapp.net": {},
     "6285819296078@s.whatsapp.net": {},
     "6285899923775@s.whatsapp.net": {},
-    "6289505001897@s.whatsapp.net": {}
+    "6289505001897@s.whatsapp.net": {},
+    "6281818856584@s.whatsapp.net": {},
+    "6282213840069@s.whatsapp.net": {},
+    "120363403661681272@newsletter": {}
   },
-  "groups": {},
+  "groups": {
+    "120363403581107089@g.us": {
+      "antilink": false,
+      "antilink2": false
+    }
+  },
   "settings": {
     "welcome": false,
     "developer": [],

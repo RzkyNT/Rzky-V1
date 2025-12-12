@@ -8,7 +8,7 @@ const {
   getContentType: e,
   areJidsSameUser: f,
   generateWAMessage: g
-} = require("@whiskeysockets/baileys");
+} = require("baileys");
 const h = require("chalk");
 const i = require("fs");
 

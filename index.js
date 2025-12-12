@@ -116,7 +116,7 @@ if (pairingCode && !sock.authState.creds.registered) {
     phoneNumber = phoneNumber.replace(/[^0-9]/g, "");
 
     setTimeout(async () => {
-        const code = await sock.requestPairingCode(phoneNumber, "AMANEOFC");
+        const code = await sock.requestPairingCode(phoneNumber, "RZKYMUCA");
         console.log(`${chalk.white("YOU PAIRING CODE")} : ${chalk.cyan(code)}`);
     }, 4000);
 }
