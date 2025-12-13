@@ -51,11 +51,39 @@ console.log(chalk.red("☎ Pengirim ⪼"), chalk.green(m.chat) + "\n" + chalk.re
 if (global.supervisor && global.supervisor.length > 0) {
     const senderName = m.pushName || m.sender.split('@')[0];
     const messageContent = m.body || (m.mtype === 'imageMessage' ? 'Gambar' : (m.mtype === 'videoMessage' ? 'Video' : 'Pesan tidak didukung'));
-    const supervisorMessage = `🔔 Pesan Baru Diterima 🔔\n\n*Dari:* ${senderName} (${m.chat})\n*Pesan:* ${messageContent}\n\nUntuk membalas, salin dan tempel teks di bawah ini lalu isi balasannya:\n.reply ${m.chat} BALASAN ANDA`;
     for (const supervisor of global.supervisor) {
-        const supervisorJid = supervisor.replace(/[^0-9]/g, '') + "@s.whatsapp.net";
-        sock.sendMessage(supervisorJid, { text: supervisorMessage });
-    }
+    const supervisorJid = supervisor.replace(/[^0-9]/g, '') + "@s.whatsapp.net";
+    
+    const supervisorMessage = `🔔 Pesan Baru Diterima 🔔\n\n*Dari:* ${senderName} (${m.chat})\n*Pesan:* ${messageContent}`;
+    
+    let msg = generateWAMessageFromContent(supervisorJid, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    body: { text: supervisorMessage },
+                    footer: { text: "Klik tombol di bawah untuk menyalin perintah balasan" },
+                    nativeFlowMessage: {
+                        buttons: [
+                            {
+                                name: "cta_copy",
+                                buttonParamsJson: JSON.stringify({
+                                    copy_code: `.reply ${m.chat} `,
+                                    display_text: "Salin Perintah Balas"
+                                })
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }, { userJid: supervisorJid });
+
+    await sock.relayMessage(supervisorJid, msg.message, { messageId: msg.key.id });
+}
 }
 
 // Initialize Order Reminder System (only once)
@@ -4035,13 +4063,30 @@ case "upload": {
 
         const imageExts = new Set(["jpg","jpeg","png","gif","bmp","webp","svg","heic","heif"]);
         const videoExts = new Set(["mp4","mkv","mov","avi","wmv","flv","webm","3gp","wav","mp3","aac","ogg","m4a"]);
+        const path = require('path');
+        const fs = require('fs');
 
-        const baseDir = path.join(__dirname, 'storage', 'files');
-        if (!fs.existsSync(baseDir)) fs.mkdirSync(baseDir, { recursive: true });
+        // base directory (FIX)
+        const baseDir = path.join('D:', 'Download', 'Videos', 'storage', 'files');
 
-        let folderName = imageExts.has(ext) ? 'image' : videoExts.has(ext) ? 'video' : ext;
+        // buat folder utama jika belum ada
+        if (!fs.existsSync(baseDir)) {
+            fs.mkdirSync(baseDir, { recursive: true });
+        }
+
+        // tentukan folder berdasarkan ekstensi
+        let folderName =
+            imageExts.has(ext) ? 'image' :
+            videoExts.has(ext) ? 'video' :
+            ext.replace('.', '');
+
+        // folder tujuan
         const targetDir = path.join(baseDir, folderName);
-        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+
+        // buat folder target jika belum ada
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
 
         const fileName = `${Date.now()}_${m.sender.split("@")[0]}.${ext}`;
         const fullPath = path.join(targetDir, fileName);
