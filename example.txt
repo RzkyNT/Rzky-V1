@@ -1,0 +1,60 @@
+                        
+        await sock.sendMessage(m.chat, {
+        interactiveMessage: {
+            title: menu, 
+            footer: global.Dev, 
+            thumbnail: global.thumbnail2,
+            nativeFlowMessage: {
+                messageParamsJson: JSON.stringify({
+                    limited_time_offer: {
+                        text: "RzkyNT Store V1.0.0",
+                        url: "https://rizqiahsansetiawan.ct.ws",
+                        copy_code: "Expired 30/12/2025",
+                        expiration_time: Date.now() * 999
+                    },
+                    bottom_sheet: {
+                        in_thread_buttons_limit: 2,
+                        divider_indices: [1, 2, 3, 4, 5, 999],
+                        list_title: "RzkyNT",
+                        button_title: "Select Menu"
+                    },
+                    tap_target_configuration: {
+                        title: "RzkyNT",
+                        description: "bomboclard",
+                        canonical_url: "https://t.me/maneeofficiall",
+                        domain: "shop.example.com",
+                        button_index: 0
+                    }
+                }),
+                buttons: [
+                    {
+                        name: "single_select",
+                        buttonParamsJson: JSON.stringify({ has_multiple_buttons: true })
+                    },
+                    {
+                        name: "call_permission_request",
+                        buttonParamsJson: JSON.stringify({ has_multiple_buttons: true })
+                    },
+                    {
+                        name: "single_select",
+                        buttonParamsJson: JSON.stringify({
+                            title: "Developer",
+                            sections: [
+                                {
+                                    title: "RzkyNT ♻️",
+                                    highlight_label: "label",
+                                    rows: [
+                                        {
+                                            title: `@Saluran WhatsApp ${global.namaOwner} 👇🏻`, 
+                                            description: `${global.linkSaluran}\n\nJangan Lupa Follow Agar Tidak Ketinggalan Tentang Update Aplikasi Terbaru.`,
+                                            id: "row_1"
+                                        },
+                                        { 
+                                            title: `@Whatsapp Developer ${global.namaOwner}`,
+                                            description: `${global.wame}`,
+                                            id: "row_2"
+                                        }
+                                    ]
+                                }
+                            ],
+                            has_multiple_buttons: true
