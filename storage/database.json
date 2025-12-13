@@ -25,7 +25,12 @@
     "6289634500254@s.whatsapp.net": {},
     "120363400297473298@newsletter": {},
     "6287876646442@s.whatsapp.net": {},
-    "628999497907@s.whatsapp.net": {}
+    "628999497907@s.whatsapp.net": {},
+    "6285885135015@s.whatsapp.net": {},
+    "6282132545587@s.whatsapp.net": {},
+    "6281908116679@s.whatsapp.net": {},
+    "6281213999872@s.whatsapp.net": {},
+    "6283115503493@s.whatsapp.net": {}
   },
   "groups": {
     "120363403581107089@g.us": {
@@ -33,6 +38,10 @@
       "antilink2": false
     },
     "6285314373302-1590735566@g.us": {
+      "antilink": false,
+      "antilink2": false
+    },
+    "6281310056625-1439807980@g.us": {
       "antilink": false,
       "antilink2": false
     }
@@ -43,6 +52,6 @@
     "reseller": [],
     "bljpm": [],
     "respon": [],
-    "ai_chat": true
+    "ai_chat": false
   }
 }

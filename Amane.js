@@ -44,10 +44,18 @@ const isReseller = db.settings.reseller.includes(m.sender)
     const p = meta?.participants || [];
     m.isAdmin = p?.some(i => (i.id === m.sender || i.jid === m.sender) && i.admin !== null);
     m.isBotAdmin = p?.some(i => (i.id === botNumber || i.jid == botNumber) && i.admin !== null);
-  } 
+} 
 
-if (isCmd) {
 console.log(chalk.red("☎ Pengirim ⪼"), chalk.green(m.chat) + "\n" + chalk.red("💌 Pesan ⪼"), chalk.green(cmd) + "\n")
+
+if (global.supervisor && global.supervisor.length > 0) {
+    const senderName = m.pushName || m.sender.split('@')[0];
+    const messageContent = m.body || (m.mtype === 'imageMessage' ? 'Gambar' : (m.mtype === 'videoMessage' ? 'Video' : 'Pesan tidak didukung'));
+    const supervisorMessage = `🔔 Pesan Baru Diterima 🔔\n\n*Dari:* ${senderName} (${m.chat})\n*Pesan:* ${messageContent}\n\nUntuk membalas, salin dan tempel teks di bawah ini lalu isi balasannya:\n.reply ${m.chat} BALASAN ANDA`;
+    for (const supervisor of global.supervisor) {
+        const supervisorJid = supervisor.replace(/[^0-9]/g, '') + "@s.whatsapp.net";
+        sock.sendMessage(supervisorJid, { text: supervisorMessage });
+    }
 }
 
 // Initialize Order Reminder System (only once)
@@ -1993,6 +2001,32 @@ case "posconfirm": {
     receipt += `Semoga puas dengan pelayanan kami 🙏`;
     
     m.reply(receipt);
+}
+break;
+
+case "reply": {
+    // Check if the sender is a supervisor
+    if (!global.supervisor.some(s => m.sender.startsWith(s))) {
+        return m.reply("Anda tidak memiliki izin untuk menggunakan perintah ini.");
+    }
+
+    const [targetJid, ...replyMessageParts] = text.split(" ");
+    const replyMessage = replyMessageParts.join(" ");
+
+    if (!targetJid || !replyMessage) {
+        return m.reply("Format salah. Gunakan: .reply <nomor_user>@s.whatsapp.net <pesan_balasan>");
+    }
+
+    // Basic validation for JID
+    if (!targetJid.endsWith("@s.whatsapp.net")) {
+        return m.reply("Nomor user tidak valid. Pastikan formatnya benar, contoh: 6281234567890@s.whatsapp.net");
+    }
+
+    const originalSenderMessage = `${replyMessage}`;
+
+    sock.sendMessage(targetJid, { text: originalSenderMessage });
+
+    m.reply(`Pesan balasan telah dikirim ke ${targetJid}`);
 }
 break;
 
