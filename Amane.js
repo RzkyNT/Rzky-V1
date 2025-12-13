@@ -2058,6 +2058,217 @@ case "reply": {
 }
 break;
 
+case "mmenu": {
+    const allCommands = {
+        "Main": [
+            { cmd: "ai", desc: "Berinteraksi dengan kecerdasan buatan (AI)." },
+            { cmd: "pinterest", desc: "Mencari gambar di Pinterest." },
+            { cmd: "ssweb", desc: "Mengambil tangkapan layar dari sebuah website." },
+            { cmd: "emojimix", desc: "Mencampur dua emoji menjadi satu." },
+            { cmd: "tourl", desc: "Mengubah file media menjadi URL." },
+            { cmd: "tourl2", desc: "Alternatif untuk mengubah file media menjadi URL." },
+            { cmd: "sticker", desc: "Membuat stiker dari gambar atau video." },
+            { cmd: "paustad", desc: "Membuat gambar dengan teks dari 'Pak Ustad'." },
+            { cmd: "iqc", desc: "Membuat gambar kutipan iPhone." },
+            { cmd: "hd", desc: "Meningkatkan kualitas gambar menjadi HD." },
+            { cmd: "hdvid", desc: "Meningkatkan kualitas video menjadi HD." },
+            { cmd: "ping", desc: "Mengecek kecepatan dan status bot." }
+        ],
+        "Downloader": [
+            { cmd: "mediafire", desc: "Mengunduh file dari Mediafire." },
+            { cmd: "tiktok", desc: "Mengunduh video atau slide dari TikTok." },
+            { cmd: "tiktok2", desc: "Alternatif untuk mengunduh dari TikTok." },
+            { cmd: "play", desc: "Memutar lagu dari YouTube." },
+            { cmd: "ytmp3", desc: "Mengunduh audio dari YouTube." },
+            { cmd: "ytmp4", desc: "Mengunduh video dari YouTube." }
+        ],
+        "Group": [
+            { cmd: "antilink", desc: "Mengaktifkan/menonaktifkan anti-link grup." },
+            { cmd: "antilink2", desc: "Alternatif untuk anti-link grup." },
+            { cmd: "welcome", desc: "Mengaktifkan/menonaktifkan pesan selamat datang." },
+            { cmd: "statusgrup", desc: "Menampilkan status pengaturan grup." },
+            { cmd: "hidetag", desc: "Mention semua anggota grup secara tersembunyi." },
+            { cmd: "kick", desc: "Mengeluarkan anggota dari grup." },
+            { cmd: "open", desc: "Membuka grup." },
+            { cmd: "close", desc: "Menutup grup." },
+            { cmd: "swtaggc", desc: "Mention semua anggota grup di status." }
+        ],
+        "Store": [
+            { cmd: "pushkontak", desc: "Mengirim pesan ke semua anggota grup." },
+            { cmd: "pushkontak2", desc: "Mengirim pesan ke semua anggota grup dan menyimpan kontak." },
+            { cmd: "savekontak", desc: "Menyimpan semua kontak dari grup." },
+            { cmd: "stoppush", desc: "Menghentikan proses push kontak." },
+            { cmd: "setjeda", desc: "Mengatur jeda waktu untuk push kontak dan JPM." },
+            { cmd: "savenomor", desc: "Menyimpan nomor telepon." },
+            { cmd: "jpm", desc: "Mengirim pesan ke semua grup." },
+            { cmd: "jpmht", desc: "Mengirim pesan hidetag ke semua grup." },
+            { cmd: "jpmch", desc: "Mengirim pesan ke semua channel." },
+            { cmd: "stopjpm", desc: "Menghentikan proses JPM." },
+            { cmd: "payment", desc: "Menampilkan informasi pembayaran." },
+            { cmd: "proses", desc: "Menandai pesanan sebagai 'diproses'." },
+            { cmd: "done", desc: "Menandai pesanan sebagai 'selesai'." }
+        ],
+        "Panel": [
+            { cmd: "addgrupreseller", desc: "Menambahkan grup sebagai grup reseller." },
+            { cmd: "delgrupreseller", desc: "Menghapus grup dari grup reseller." },
+            { cmd: "listgrupreseller", desc: "Menampilkan daftar grup reseller." },
+            { cmd: "addseller", desc: "Menambahkan reseller." },
+            { cmd: "delseller", desc: "Menghapus reseller." },
+            { cmd: "listseller", desc: "Menampilkan daftar reseller." },
+            { cmd: "1gb-unlimited", desc: "Membuat server panel dengan spek tertentu." },
+            { cmd: "delpanel", desc: "Menghapus server panel." },
+            { cmd: "listpanel", desc: "Menampilkan daftar server panel." },
+            { cmd: "cadmin", desc: "Membuat akun admin panel." },
+            { cmd: "deladmin", desc: "Menghapus akun admin panel." },
+            { cmd: "listadmin", desc: "Menampilkan daftar admin panel." },
+            { cmd: "subdomain", desc: "Membuat subdomain." },
+            { cmd: "installpanel", desc: "Menginstall panel Pterodactyl." },
+            { cmd: "startwings", desc: "Menjalankan wings Pterodactyl." },
+            { cmd: "setptla", desc: "Mengatur API key PTLA." },
+            { cmd: "setptlc", desc: "Mengatur API key PTLC." },
+            { cmd: "setdomain", desc: "Mengatur domain panel." },
+            { cmd: "upapikey", desc: "Memperbarui API key." }
+        ],
+        "Owner": [
+            { cmd: "delproduk", desc: "Menghapus produk." },
+            { cmd: "addproduk", desc: "Menambahkan produk." },
+            { cmd: "delrespon", desc: "Menghapus auto-response." },
+            { cmd: "addrespon", desc: "Menambahkan auto-response." },
+            { cmd: "bljpm", desc: "Blacklist grup dari JPM." },
+            { cmd: "delbljpm", desc: "Menghapus grup dari blacklist JPM." },
+            { cmd: "addowner", desc: "Menambahkan owner." },
+            { cmd: "listowner", desc: "Menampilkan daftar owner." },
+            { cmd: "delowner", desc: "Menghapus owner." },
+            { cmd: "resetdb", desc: "Mereset database." },
+            { cmd: "upswgc", desc: "Update status grup." },
+            { cmd: "public", desc: "Mengubah mode bot menjadi public." },
+            { cmd: "self", desc: "Mengubah mode bot menjadi self." },
+            { cmd: "setjeda", desc: "Mengatur jeda." },
+            { cmd: "backupsc", desc: "Backup script." },
+            { cmd: "delcase", desc: "Menghapus case command." },
+            { cmd: "addcase", desc: "Menambahkan case command." },
+            { cmd: "delsampahbot", desc: "Menghapus file sampah." }
+        ],
+        "CRM": [
+            { cmd: "daftar", desc: "Mendaftar sebagai pelanggan." },
+            { cmd: "order", desc: "Memesan produk." },
+            { cmd: "pesan", desc: "Alias untuk order." },
+            { cmd: "produk", desc: "Menampilkan daftar produk." },
+            { cmd: "harga", desc: "Alias untuk produk." },
+            { cmd: "statusorder", desc: "Mengecek status pesanan." },
+            { cmd: "cekorder", desc: "Alias untuk statusorder." },
+            { cmd: "batalorder", desc: "Membatalkan pesanan." },
+            { cmd: "listorder", desc: "Menampilkan daftar pesanan (admin)." },
+            { cmd: "antar", desc: "Mengantar pesanan (admin)." },
+            { cmd: "selesai", desc: "Menyelesaikan pesanan (admin)." },
+            { cmd: "listcust", desc: "Menampilkan daftar pelanggan (admin)." },
+            { cmd: "addproduk", desc: "Menambahkan produk (admin)." },
+            { cmd: "delproduk", desc: "Menghapus produk (admin)." },
+            { cmd: "addkurir", desc: "Menambahkan kurir (admin)." },
+            { cmd: "delkurir", desc: "Menghapus kurir (admin)." },
+            { cmd: "listkurir", desc: "Menampilkan daftar kurir (admin)." },
+            { cmd: "profile", desc: "Menampilkan profil pelanggan." },
+            { cmd: "profil", desc: "Alias untuk profile." },
+            { cmd: "me", desc: "Alias untuk profile." },
+            { cmd: "repeatorder", desc: "Mengulang pesanan terakhir." },
+            { cmd: "editname", desc: "Mengubah nama profil." },
+            { cmd: "editaddress", desc: "Mengubah alamat profil." },
+            { cmd: "pos", desc: "Sistem Point of Sale (admin)." }
+        ],
+        "Auto": [
+            { cmd: "autojpmch", desc: "Mengaktifkan/menonaktifkan JPM channel otomatis." },
+            { cmd: "setjpmch", desc: "Mengatur pesan JPM channel." },
+            { cmd: "delsetjpmch", desc: "Menghapus pengaturan JPM channel." },
+            { cmd: "autojpm", desc: "Mengaktifkan/menonaktifkan JPM grup otomatis." },
+            { cmd: "setjpm", desc: "Mengatur pesan JPM grup." },
+            { cmd: "delsetjpm", desc: "Menghapus pengaturan JPM grup." },
+            { cmd: "autojoingrup", desc: "Mengaktifkan/menonaktifkan auto join grup." }
+        ]
+    };
+
+    if (text) {
+        const category = text.trim();
+        if (!allCommands[category]) {
+            return m.reply("❌ Kategori tidak ditemukan!");
+        }
+
+        const sections = [{
+            title: `Menu ${category}`,
+            rows: allCommands[category].map(item => ({
+                header: `.${item.cmd}`,
+                title: item.cmd,
+                description: item.desc,
+                id: `.${item.cmd}`
+            }))
+        }];
+        
+        let msg = generateWAMessageFromContent(m.chat, {
+            viewOnceMessage: {
+                message: {
+                    messageContextInfo: {
+                        deviceListMetadata: {},
+                        deviceListMetadataVersion: 2
+                    },
+                    interactiveMessage: {
+                        header: { title: `📂 ${category}`, hasMediaAttachment: false },
+                        body: { text: "Silahkan pilih command:" },
+                        footer: { text: global.Dev },
+                        nativeFlowMessage: {
+                            buttons: [{
+                                name: "single_select",
+                                buttonParamsJson: JSON.stringify({
+                                    title: "List Command",
+                                    sections
+                                })
+                            }]
+                        }
+                    }
+                }
+            }
+        }, { userJid: m.sender, quoted: m });
+
+        return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+    }
+
+    // JIKA TANPA ARGUMEN → PILIH KATEGORI
+    const categorySections = [{
+        title: "Daftar Kategori",
+        rows: Object.keys(allCommands).map(cat => ({
+            header: cat,
+            title: ``,
+            description: `Buka Menu ${cat}`,
+            id: `.mmenu ${cat}`
+        }))
+    }];
+
+    let msg = generateWAMessageFromContent(m.chat, {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: {
+                    deviceListMetadata: {},
+                    deviceListMetadataVersion: 2
+                },
+                interactiveMessage: {
+                    header: { title: "📋 MENU UTAMA", hasMediaAttachment: false },
+                    body: { text: "Silahkan pilih kategori menu:" },
+                    footer: { text: global.Dev },
+                    nativeFlowMessage: {
+                        buttons: [{
+                            name: "single_select",
+                            buttonParamsJson: JSON.stringify({
+                                title: "Pilih Kategori",
+                                sections: categorySections
+                            })
+                        }]
+                    }
+                }
+            }
+        }
+    }, { userJid: m.sender, quoted: m });
+    
+    await sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+}
+break;
 case "mane":
 case "menu":{
 let menu = `
