@@ -2185,90 +2185,94 @@ case "mmenu": {
             { cmd: "autojoingrup", desc: "Mengaktifkan/menonaktifkan auto join grup." }
         ]
     };
-
-    if (text) {
-        const category = text.trim();
+  if (text) {
+        const category = text.trim()
         if (!allCommands[category]) {
-            return m.reply("❌ Kategori tidak ditemukan!");
+            return m.reply("❌ Kategori tidak ditemukan!")
         }
 
-        const sections = [{
-            title: `Menu ${category}`,
+        const commandSections = [{
+            title: `📂 ${category}`,
             rows: allCommands[category].map(item => ({
-                header: `.${item.cmd}`,
-                title: item.cmd,
+                title: `.${item.cmd}`,
                 description: item.desc,
                 id: `.${item.cmd}`
             }))
-        }];
-        
-        let msg = generateWAMessageFromContent(m.chat, {
-            viewOnceMessage: {
-                message: {
-                    messageContextInfo: {
-                        deviceListMetadata: {},
-                        deviceListMetadataVersion: 2
-                    },
-                    interactiveMessage: {
-                        header: { title: `📂 ${category}`, hasMediaAttachment: false },
-                        body: { text: "Silahkan pilih command:" },
-                        footer: { text: global.Dev },
-                        nativeFlowMessage: {
-                            buttons: [{
-                                name: "single_select",
-                                buttonParamsJson: JSON.stringify({
-                                    title: "List Command",
-                                    sections
-                                })
-                            }]
+        }]
+
+        return await sock.sendMessage(m.chat, {
+            interactiveMessage: {
+                title: `📂 ${category}`,
+                footer: global.Dev,
+                thumbnail: global.thumbnail2,
+                nativeFlowMessage: {
+                    messageParamsJson: JSON.stringify({
+                        bottom_sheet: {
+                            list_title: `Menu ${category}`,
+                            button_title: "Select Menu♻️"
                         }
-                    }
+                    }),
+                    buttons: [
+                        {
+                            name: "single_select",
+                            buttonParamsJson: JSON.stringify({
+                                title: "Menu⤵️",
+                                sections: commandSections,
+                                has_multiple_buttons: true
+                            })
+                        },
+                        {
+                            name: "quick_reply",
+                            buttonParamsJson: JSON.stringify({
+                                display_text: "⬅️ Back",
+                                id: `.mmenu`
+                            })
+                        }
+                    ]
                 }
             }
-        }, { userJid: m.sender, quoted: m });
-
-        return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+        }, { quoted: m })
     }
 
-    // JIKA TANPA ARGUMEN → PILIH KATEGORI
+    // =========================
+    // TANPA ARGUMEN → PILIH KATEGORI
+    // =========================
     const categorySections = [{
-        title: "Daftar Kategori",
+        title: "📋 Daftar Kategori",
         rows: Object.keys(allCommands).map(cat => ({
-            header: cat,
-            title: ``,
+            title: cat,
             description: `Buka Menu ${cat}`,
             id: `.mmenu ${cat}`
         }))
-    }];
+    }]
 
-    let msg = generateWAMessageFromContent(m.chat, {
-        viewOnceMessage: {
-            message: {
-                messageContextInfo: {
-                    deviceListMetadata: {},
-                    deviceListMetadataVersion: 2
-                },
-                interactiveMessage: {
-                    header: { title: "📋 MENU UTAMA", hasMediaAttachment: false },
-                    body: { text: "Silahkan pilih kategori menu:" },
-                    footer: { text: global.Dev },
-                    nativeFlowMessage: {
-                        buttons: [{
-                            name: "single_select",
-                            buttonParamsJson: JSON.stringify({
-                                title: "Pilih Kategori",
-                                sections: categorySections
-                            })
-                        }]
+    await sock.sendMessage(m.chat, {
+        interactiveMessage: {
+            title: "📋 MENU UTAMA",
+            footer: global.Dev,
+            thumbnail: global.thumbnail2,
+            nativeFlowMessage: {
+                messageParamsJson: JSON.stringify({
+                    bottom_sheet: {
+                        list_title: "RzkyNT Menu",
+                        button_title: "Select Menu♻️"
                     }
-                }
+                }),
+                buttons: [
+                    {
+                        name: "single_select",
+                        buttonParamsJson: JSON.stringify({
+                            title: "Menu⤵️",
+                            sections: categorySections,
+                            has_multiple_buttons: true
+                        })
+                    }
+                ]
             }
         }
-    }, { userJid: m.sender, quoted: m });
-    
-    await sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+    }, { quoted: m })
 }
-break;
+break
 case "mane":
 case "menu":{
 let menu = `
