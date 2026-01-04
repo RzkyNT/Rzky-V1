@@ -10,8 +10,8 @@ global.wame = "wa.me/62895602416781"
 global.version = "4.0.0"
 global.dev = "IG: Rzky.NT"
 global.namaOwner = "RzkyNT"
-global.supervisor = ["62895602416781"] // ganti dengan nomor supervisor
-global.mode_public = true
+global.supervisor = ["62895602416782"] // ganti dengan nomor supervisor
+global.mode_public = false
 
 global.linkSaluran = "https://whatsapp.com/channel/0029Vb5RfCe7z4knVfZ6Ku2v"
 global.linkChannel = "https://whatsapp.com/channel/0029Vb5RfCe7z4knVfZ6Ku2v"

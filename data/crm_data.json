@@ -1,5 +1,16 @@
 {
-  "customers": {},
+  "customers": {
+    "62895602416781@s.whatsapp.net": {
+      "id": "62895602416781@s.whatsapp.net",
+      "name": "Rizqi Ahsan Setiawan",
+      "address": "Blok U1 NO 7",
+      "latitude": -6.1990759,
+      "longitude": 107.0098526,
+      "phone": "62895602416781",
+      "joined": "2025-12-19T05:54:29.693Z",
+      "orders_count": 0
+    }
+  },
   "orders": [],
   "products": [
     {
