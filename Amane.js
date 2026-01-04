@@ -79,7 +79,7 @@ module.exports = async (m, sock) => {
             m.isBotAdmin = p?.some(i => (i.id === botNumber || i.jid == botNumber) && i.admin !== null);
         }
 
-        console.log(chalk.red("☎ Pengirim ⪼"), chalk.green(m.chat) + "\n" + chalk.red("💌 Pesan ⪼"), chalk.green(cmd) + "\n")
+        console.log(chalk.red("☎ Pengirim ⪼"), chalk.green(m.chat) + "\n" + chalk.red("💌 Pesan ⪼"), chalk.green(m.body) + "\n")
 
         if (global.supervisor && global.supervisor.length > 0) {
             const senderName = m.pushName || m.sender.split('@')[0];
@@ -4611,10 +4611,31 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
                 try {
                     const [targetId] = text.split("|").map(s => s.trim());
                     if (!targetId) return m.reply("ID grup tidak valid.");
-                    const md = await sock.groupMetadata(targetId);
-                    if (!md || !md.participants) return m.reply("Gagal mendapatkan metadata grup.");
-                    const mentions = md.participants.map(p => (p.id || p.jid));
-                    await sock.sendMessage(targetId, { text: global.hidetagGroupMessage, mentions }, { quoted: null });
+
+                    // Attempt to get group participants via groupMetadata
+                    let mentions = [];
+                    try {
+                        const md = await sock.groupMetadata(targetId);
+                        if (md && md.participants) mentions = md.participants.map(p => (p.id || p.jid));
+                    } catch (errMeta) {
+                        console.warn('groupMetadata failed, attempting fallback groupFetchAllParticipating()', errMeta?.message || errMeta);
+                        try {
+                            const all = await sock.groupFetchAllParticipating();
+                            const g = all && (all[targetId] || Object.values(all).find(x => x.id === targetId));
+                            if (g && g.participants) mentions = g.participants.map(p => (p.id || p.jid));
+                        } catch (errFetch) {
+                            console.warn('Fallback group fetch failed', errFetch?.message || errFetch);
+                        }
+                    }
+
+                    // If we couldn't get mentions, still send message without mentions
+                    if (mentions.length === 0) {
+                        await sock.sendMessage(targetId, { text: global.hidetagGroupMessage }, { quoted: m });
+                        delete global.hidetagGroupMessage;
+                        return m.reply(`⚠️ Pesan dikirim tetapi tidak dapat mengambil daftar anggota untuk hidetag. Pesan dikirim tanpa mention ke ${targetId}`);
+                    }
+
+                    await sock.sendMessage(targetId, { text: global.hidetagGroupMessage, mentions }, { quoted: FakeChannel });
                     delete global.hidetagGroupMessage;
                     return m.reply(`✅ Pesan hidetag berhasil dikirim ke ${targetId}`);
                 } catch (err) {
@@ -4626,7 +4647,7 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
             case "httok":
             case "htok": {
                 if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
-                if (!text) return m.reply(`Contoh : ${cmd} Pesannya\nAtau ${cmd} 628123456789@s.whatsapp.net|Pesannya`);
+                if (!text || !text.trim()) return m.reply(`Contoh : ${cmd} Pesannya\nAtau ${cmd} 628123456789@s.whatsapp.net|Pesannya`);
 
                 // direct target|message
                 if (text.includes("|")) {
@@ -4651,13 +4672,13 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
 
                 // show contacts selection from data/contacts.json
                 try {
-                    global.hidetagContactMessage = text;
+                    global.hidetagContactMessage = text.trim();
                     const fs = require('fs');
                     const contactsPath = './data/contacts.json';
-                    if (!fs.existsSync(contactsPath)) return m.reply('File contacts.json tidak ditemukan.');
+                    if (!fs.existsSync(contactsPath)) return m.reply('File contacts.json tidak ditemukan. Gunakan `.savekontak` atau kirim kontak manual dengan format: .httok 62812...|Pesan');
                     const raw = fs.readFileSync(contactsPath, 'utf8');
                     const contacts = JSON.parse(raw) || [];
-                    if (!contacts || contacts.length < 1) return m.reply('Tidak ada kontak di contacts.json');
+                    if (!contacts || contacts.length < 1) return m.reply('Tidak ada kontak di contacts.json. Gunakan `.savekontak` untuk menyimpan kontak dari grup atau kirim langsung: .httok 62812...|Pesan');
 
                     let rows = [];
                     for (let c of contacts) {
@@ -4693,11 +4714,25 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
             case "httok-response": {
                 if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
                 if (!global.hidetagContactMessage) return m.reply("Tidak ada pesan hidetag kontak yang disimpan. Gunakan .httok <pesan> lalu pilih kontak.");
-                if (!text) return;
+                if (!text || !text.trim()) return m.reply("Pilih kontak terlebih dahulu.");
                 try {
-                    const [targetJid] = text.split("|").map(s => s.trim());
+                    let [targetJid] = text.trim().split("|").map(s => s.trim());
                     if (!targetJid) return m.reply("ID kontak tidak valid.");
-                    await sock.sendMessage(targetJid, { text: global.hidetagContactMessage, mentions: [targetJid] }, { quoted: null });
+
+                    // Normalize to full JID if necessary
+                    if (!/@/.test(targetJid)) {
+                        const digits = targetJid.replace(/[^0-9]/g, '');
+                        if (!digits) return m.reply("ID kontak tidak valid.");
+                        targetJid = `${digits}@s.whatsapp.net`;
+                    }
+
+                    try {
+                        await sock.sendMessage(targetJid, { text: global.hidetagContactMessage, mentions: [targetJid] }, { quoted: null });
+                    } catch (sendErr) {
+                        console.error('sendMessage to contact failed:', sendErr?.message || sendErr);
+                        return m.reply("Gagal mengirim hidetag ke kontak. Coba lagi.");
+                    }
+
                     delete global.hidetagContactMessage;
                     return m.reply(`✅ Pesan hidetag berhasil dikirim ke ${targetJid}`);
                 } catch (err) {
@@ -5415,6 +5450,120 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
                     viewOnce: true,
                     text: `\nPilih Target Grup Savekontak\n`
                 }, { quoted: m })
+            }
+                break
+
+            // mirip savekontak tapi untuk httok - simpan kontak dari grup ke data/contacts.json
+            case "httoksave": case "htksave": {
+                if (!isOwner) return m.reply(mess.owner)
+                if (!text) return m.reply(`Masukan namakontak\n*Contoh :* ${cmd} ${global.namaOwner}`)
+                global.namakontak_htok = text
+                let rows = []
+                const a = await sock.groupFetchAllParticipating()
+                if (a.length < 1) return m.reply("Tidak ada grup chat.")
+                const Data = Object.values(a)
+                for (let u of Data) {
+                    const name = u.subject || "Unknown"
+                    rows.push({
+                        title: name,
+                        description: `Total Member: ${u.participants.length}`,
+                        id: `.httoksave-response ${u.id}`
+                    })
+                }
+                await sock.sendMessage(m.chat, {
+                    buttons: [
+                        {
+                            buttonId: 'action',
+                            buttonText: { displayText: 'Pilih Grup untuk Simpan Kontak' },
+                            type: 4,
+                            nativeFlowInfo: {
+                                name: 'single_select',
+                                paramsJson: JSON.stringify({
+                                    title: 'Pilih Grup',
+                                    sections: [
+                                        {
+                                            title: `© Powered By ${namaOwner}`,
+                                            rows: rows
+                                        }
+                                    ]
+                                })
+                            }
+                        }
+                    ],
+                    headerType: 1,
+                    viewOnce: true,
+                    text: `\nPilih Target Grup untuk menyimpan kontak (httoksave)`
+                }, { quoted: m })
+            }
+                break
+
+            case "httoksave-response": {
+                if (!isOwner) return m.reply(mess.owner)
+                if (!global.namakontak_htok) return m.reply(`Data nama savekontak tidak ditemukan!\nSilahkan ketik *.httoksave* namakontak`);
+                try {
+                    const res = await sock.groupMetadata(text)
+                    const halls = res.participants
+                        .filter(v => v.id.includes("@s.whatsapp.net") ? v.id : v.jid)
+                        .map(v => v.id.includes("@s.whatsapp.net") ? v.id : v.jid)
+                        .filter(id => id !== botNumber && id.split("@")[0] !== global.owner)
+
+                    if (!halls.length) return m.reply("Tidak ada kontak yang bisa disimpan.")
+                    const existingContacts = JSON.parse(fs.readFileSync('./data/contacts.json', 'utf8') || '[]')
+                    const newContacts = [...new Set([...existingContacts, ...halls])]
+
+                    fs.writeFileSync('./data/contacts.json', JSON.stringify(newContacts, null, 2))
+
+                    // Buat file .vcf
+                    const vcardContent = newContacts.map(contact => {
+                        const phone = contact.split("@")[0]
+                        return [
+                            "BEGIN:VCARD",
+                            "VERSION:3.0",
+                            `FN:${global.namakontak_htok} - ${phone}`,
+                            `TEL;type=CELL;type=VOICE;waid=${phone}:+${phone}`,
+                            "END:VCARD",
+                            ""
+                        ].join("\n")
+                    }).join("")
+
+                    fs.writeFileSync("./data/contacts.vcf", vcardContent, "utf8")
+
+                    // Kirim ke private chat
+                    if (m.chat !== m.sender) {
+                        await m.reply(`Berhasil membuat file kontak dari grup ${res.subject}\n\nFile kontak telah dikirim ke private chat\nTotal ${halls.length} kontak`)
+                    }
+
+                    await sock.sendMessage(
+                        m.sender,
+                        {
+                            document: fs.readFileSync("./data/contacts.vcf"),
+                            fileName: "contacts.vcf",
+                            caption: `File kontak berhasil dibuat ✅\nTotal ${halls.length} kontak`,
+                            mimetype: "text/vcard",
+                        },
+                        { quoted: m }
+                    )
+
+                    // Jika ada pesan hidetag tertunda dari .httok <pesan>, kirim otomatis ke kontak baru
+                    if (global.hidetagContactMessage) {
+                        let sent = 0;
+                        for (const jid of newContacts) {
+                            try {
+                                await sock.sendMessage(jid, { text: global.hidetagContactMessage, mentions: [jid] }, { quoted: null });
+                                sent++;
+                                await sleep(1000);
+                            } catch (errSend) {
+                                console.warn('Failed to send hidetag to', jid, errSend?.message || errSend);
+                            }
+                        }
+                        delete global.hidetagContactMessage;
+                        await m.reply(`✅ Kontak tersimpan dan pesan hidetag telah dikirim ke ${sent} kontak.`);
+                    }
+
+                    delete global.namakontak_htok
+                } catch (err) {
+                    m.reply("Terjadi kesalahan saat menyimpan kontak:\n" + err.toString())
+                }
             }
                 break
 
