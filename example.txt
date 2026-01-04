@@ -1,60 +1,14 @@
-                        
-        await sock.sendMessage(m.chat, {
-        interactiveMessage: {
-            title: menu, 
-            footer: global.Dev, 
-            thumbnail: global.thumbnail2,
-            nativeFlowMessage: {
-                messageParamsJson: JSON.stringify({
-                    limited_time_offer: {
-                        text: "RzkyNT Store V1.0.0",
-                        url: "https://rizqiahsansetiawan.ct.ws",
-                        copy_code: "Expired 30/12/2025",
-                        expiration_time: Date.now() * 999
-                    },
-                    bottom_sheet: {
-                        in_thread_buttons_limit: 2,
-                        divider_indices: [1, 2, 3, 4, 5, 999],
-                        list_title: "RzkyNT",
-                        button_title: "Select Menu"
-                    },
-                    tap_target_configuration: {
-                        title: "RzkyNT",
-                        description: "bomboclard",
-                        canonical_url: "https://t.me/maneeofficiall",
-                        domain: "shop.example.com",
-                        button_index: 0
-                    }
-                }),
-                buttons: [
-                    {
-                        name: "single_select",
-                        buttonParamsJson: JSON.stringify({ has_multiple_buttons: true })
-                    },
-                    {
-                        name: "call_permission_request",
-                        buttonParamsJson: JSON.stringify({ has_multiple_buttons: true })
-                    },
-                    {
-                        name: "single_select",
-                        buttonParamsJson: JSON.stringify({
-                            title: "Developer",
-                            sections: [
-                                {
-                                    title: "RzkyNT ♻️",
-                                    highlight_label: "label",
-                                    rows: [
-                                        {
-                                            title: `@Saluran WhatsApp ${global.namaOwner} 👇🏻`, 
-                                            description: `${global.linkSaluran}\n\nJangan Lupa Follow Agar Tidak Ketinggalan Tentang Update Aplikasi Terbaru.`,
-                                            id: "row_1"
-                                        },
-                                        { 
-                                            title: `@Whatsapp Developer ${global.namaOwner}`,
-                                            description: `${global.wame}`,
-                                            id: "row_2"
-                                        }
-                                    ]
-                                }
-                            ],
-                            has_multiple_buttons: true
+Yt Search curl -X GET "https://api.gimita.id/api/search/youtube?query=ceramah%20ustadz%20abdul%20somad"
+
+Yt Download Audio curl -X GET "https://api.gimita.id/api/downloader/ytmp3?url=https%3A%2F%2Fyoutu.be%2FvYbb0N5IYEM%3Fsi%3D3m72wukxW_LfT-8N"
+
+Yt Download Video curl -X GET "https://api.gimita.id/api/downloader/ytmp4?resolution=720&url=https%3A%2F%2Fyoutu.be%2FvYbb0N5IYEM%3Fsi%3D3m72wukxW_LfT-8N"
+
+Xnxx Search curl -X GET "https://api.gimita.id/api/search/xnxx?page=1&query=dokter%20perawat"
+Xnxx Download curl -X GET "https://api.gimita.id/api/downloader/xnxx?url=https%3A%2F%2Fwww.xnxx.com%2Fvideo-1csk5f68%2Fmy_step_mom_has_a_trans_step_sister_what_"\
+
+upload ke catbox lalu link di simpan dan digunakan curl -X GET "https://api.gimita.id/api/maker/deepnude?url=https%3A%2F%2Fi.pinimg.com%2F736x%2F39%2Fb4%2Fc5%2F39b4c5034208e94b40d0717fd635dce3.jpg"
+karna generate image lumayan lama, jadi tolong cek progressnya curl -X GET "https://api.gimita.id/api/maker/deepnude-status?taskId=ae9e90cb-98d6-4d23-b0bd-8734162ef917"
+
+remove bg upload ke catbox lalu link di simpan dan digunakan curl -X GET "https://api.gimita.id/api/maker/removebg?image=%5Bobject%20File%5D&url=https%3A%2F%2Fi.pinimg.com%2F736x%2F39%2Fb4%2Fc5%2F39b4c5034208e94b40d0717fd635dce3.jpg"
+upscale image upload ke catbox lalu link di simpan dan digunakan curl -X GET "https://api.gimita.id/api/tools/upscale?url=https%3A%2F%2Fi.pinimg.com%2F736x%2F39%2Fb4%2Fc5%2F39b4c5034208e94b40d0717fd635dce3.jpg"

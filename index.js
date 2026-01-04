@@ -138,7 +138,7 @@ if (pairingCode && !sock.authState.creds.registered) {
                         else if (message && message.buttons) preview = '[buttons]';
                         else if (message && message.sticker) preview = '[sticker]';
                         else preview = JSON.stringify(message).slice(0, 200);
-                        console.log(chalk.hex('#82AAFF')('>> Response >>'), jid, 'type:', type, 'preview:', preview);
+                        console.log(chalk.hex('#82AAFF')('Response >>'), jid, 'type:', type, 'preview:', preview);
                     } catch (e) {}
                     return res;
                 } catch (err) {

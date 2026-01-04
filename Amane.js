@@ -3217,7 +3217,7 @@ ${global.ucapan()}
                 break
             case "bratvid":
             case "neon": {
-                if (!text) return m.reply(`*Contoh:* ${cmd} hallo aku Amane!`)
+                if (!text) return m.reply(`*Contoh:* ${cmd} hallo aku Rzky!`)
                 var media = await getBuffer(`https://api.siputzx.my.id/api/m/brat?text=${text}&isAnimated=true&delay=500`)
                 await sock.sendStimg(m.chat, media, m, { packname: "Rzky NT" })
             }
@@ -5212,7 +5212,7 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
 
             case "pushkontak": case "puskontak": {
                 if (!isOwner) return m.reply(mess.owner)
-                if (!text) return m.reply(`*Contoh :* ${cmd} pesannya`)
+                if (!text) return m.reply(`*Contoh :* ${cmd} Pesan\n*Contoh Save:* ${cmd} Pesan|NamaKontak`)
                 global.textpushkontak = text
                 let rows = []
                 const a = await sock.groupFetchAllParticipating()
@@ -5231,7 +5231,7 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
                     buttons: [
                         {
                             buttonId: 'action',
-                            buttonText: { displayText: 'ini pesan interactiveMeta' },
+                            buttonText: { displayText: 'Pilih Grup Target' },
                             type: 4,
                             nativeFlowInfo: {
                                 name: 'single_select',
@@ -5256,121 +5256,114 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
 
             case "pushkontak-response": {
                 if (!isOwner) return m.reply(mess.owner)
-                if (!global.textpushkontak) return m.reply(`Data teks pushkontak tidak ditemukan!\nSilahkan ketik *.pushkontak* pesannya`);
-                const teks = global.textpushkontak
-                const jidawal = m.chat
-                const data = await sock.groupMetadata(text)
-                const halls = data.participants
-                    .filter(v => v.id.includes("@s.whatsapp.net") ? v.id : v.jid)
-                    .map(v => v.id.includes("@s.whatsapp.net") ? v.id : v.jid)
-                    .filter(id => id !== botNumber && id.split("@")[0] !== global.owner);
-
-                await m.reply(`🚀 Memulai pushkontak ke dalam grup ${data.subject} dengan total member ${halls.length}`);
-
-                global.statuspush = true
-
-                delete global.textpushkontak
-                let count = 0
-
-                for (const mem of halls) {
-                    if (global.stoppush) {
-                        delete global.stoppush
-                        delete global.statuspush
-                        break
-                    }
-                    await sock.sendMessage(mem, { text: teks }, { quoted: FakeChannel });
-                    await global.sleep(global.JedaPushkontak);
-                    count += 1
+                if (!global.textpushkontak) return m.reply(`Data teks pushkontak tidak ditemukan!`);
+                const groupId = text.trim();
+                
+                try {
+                    const groupMetadata = await sock.groupMetadata(groupId);
+                    const groupName = groupMetadata.subject;
+                    
+                    await sock.sendMessage(m.chat, {
+                        text: `Target: ${groupName}\nPesan: "${global.textpushkontak}"\n\nSilahkan pilih metode Pushkontak:`,
+                        buttons: [
+                            {
+                                buttonId: `.pushkontak-exec ${groupId}|send`,
+                                buttonText: { displayText: '📨 Kirim Saja' },
+                                type: 1
+                            },
+                            {
+                                buttonId: `.pushkontak-exec ${groupId}|save`,
+                                buttonText: { displayText: '📨 Kirim & 💾 Save' },
+                                type: 1
+                            }
+                        ],
+                        headerType: 1,
+                        viewOnce: true
+                    }, { quoted: m });
+                    
+                } catch (e) {
+                    m.reply("Gagal mengambil info grup.");
                 }
-
-                delete global.statuspush
-                await m.reply(`✅ Sukses pushkontak!\nPesan berhasil dikirim ke *${count}* member.`, jidawal)
             }
                 break
 
-            case "pushkontak2": case "puskontak2": {
-                if (!isOwner) return m.reply(mess.owner)
-                if (!text || !text.includes("|")) return m.reply(`Masukan pesan & nama kontak\n*Contoh :* ${cmd} pesan|namakontak`)
-                global.textpushkontak = text.split("|")[0]
-                let rows = []
-                const a = await sock.groupFetchAllParticipating()
-                if (a.length < 1) return m.reply("Tidak ada grup chat.")
-                const Data = Object.values(a)
-                let number = 0
-                for (let u of Data) {
-                    const name = u.subject || "Unknown"
-                    rows.push({
-                        title: name,
-                        description: `Total Member: ${u.participants.length}`,
-                        id: `.pushkontak-response2 ${u.id}|${text.split("|")[1]}`
-                    })
+            case "pushkontak-exec": {
+                if (!isOwner) return m.reply(mess.owner);
+                if (!global.textpushkontak) return m.reply("Sesi pushkontak habis.");
+                
+                const [groupId, mode] = text.split("|");
+                const fullMessage = global.textpushkontak;
+                
+                // Parse message and saveName
+                let messageText = fullMessage;
+                let saveName = "Auto Contact";
+                
+                if (fullMessage.includes("|")) {
+                    const parts = fullMessage.split("|");
+                    messageText = parts[0];
+                    saveName = parts.slice(1).join("|").trim() || "Auto Contact";
                 }
-                await sock.sendMessage(m.chat, {
-                    buttons: [
-                        {
-                            buttonId: 'action',
-                            buttonText: { displayText: 'ini pesan interactiveMeta' },
-                            type: 4,
-                            nativeFlowInfo: {
-                                name: 'single_select',
-                                paramsJson: JSON.stringify({
-                                    title: 'Pilih Grup',
-                                    sections: [
-                                        {
-                                            title: `© Powered By ${namaOwner}`,
-                                            rows: rows
-                                        }
-                                    ]
-                                })
+
+                try {
+                    const data = await sock.groupMetadata(groupId);
+                    const halls = data.participants
+                        .filter(v => v.id.includes("@s.whatsapp.net") ? v.id : v.jid)
+                        .map(v => v.id.includes("@s.whatsapp.net") ? v.id : v.jid)
+                        .filter(id => id !== botNumber && id.split("@")[0] !== global.owner);
+
+                    await m.reply(`🚀 Memulai Pushkontak (${mode === 'save' ? 'Send & Save' : 'Send Only'}) ke ${halls.length} member grup ${data.subject}...`);
+
+                    global.statuspush = true;
+                    let count = 0;
+                    let saved = 0;
+
+                    for (const mem of halls) {
+                        if (global.stoppush) {
+                            delete global.stoppush;
+                            delete global.statuspush;
+                            break;
+                        }
+                        
+                        // 1. Send Message
+                        try {
+                            await sock.sendMessage(mem, { text: messageText }, { quoted: FakeChannel });
+                            count++;
+                        } catch (e) {
+                            console.error(`Push send fail ${mem}:`, e);
+                        }
+
+                        // 2. Save Contact (if mode is save)
+                        if (mode === 'save') {
+                            try {
+                                const contactAction = {
+                                    "fullName": `${saveName} #${mem.split("@")[0]}`,
+                                    "lidJid": mem,
+                                    "saveOnPrimaryAddressbook": true
+                                };
+                                await sock.addOrEditContact(mem, contactAction);
+                                saved++;
+                            } catch (e) {
+                                console.error(`Push save fail ${mem}:`, e);
                             }
                         }
-                    ],
-                    headerType: 1,
-                    viewOnce: true,
-                    text: `\nPilih Target Grup PushkontakV2\n`
-                }, { quoted: m })
-            }
-                break
 
-            case "pushkontak-response2": {
-                if (!isOwner) return m.reply(mess.owner)
-                if (!global.textpushkontak) return m.reply(`Data teks pushkontak tidak ditemukan!\nSilahkan ketik *.pushkontak2* pesannya|namakontak`);
-                const teks = global.textpushkontak
-                const jidawal = m.chat
-                const data = await sock.groupMetadata(text.split("|")[0])
-                const halls = data.participants
-                    .filter(v => v.id.includes("@s.whatsapp.net") ? v.id : v.jid)
-                    .map(v => v.id.includes("@s.whatsapp.net") ? v.id : v.jid)
-                    .filter(id => id !== botNumber && id.split("@")[0] !== global.owner);
-
-                await m.reply(`🚀 Memulai pushkontak autosave kontak ke dalam grup ${data.subject} dengan total member ${halls.length}`);
-
-                global.statuspush = true
-
-                delete global.textpushkontak
-                let count = 0
-
-                for (const mem of halls) {
-                    if (global.stoppush) {
-                        delete global.stoppush
-                        delete global.statuspush
-                        break
+                        await global.sleep(global.JedaPushkontak);
                     }
-                    const contactAction = {
-                        "fullName": `${text.split("|")[1]} #${mem.split("@")[0]}`,
-                        "lidJid": mem,
-                        "saveOnPrimaryAddressbook": true
-                    };
-                    await sock.sendMessage(mem, { text: teks }, { quoted: FakeChannel });
-                    await sock.addOrEditContact(mem, contactAction);
-                    await global.sleep(global.JedaPushkontak);
-                    count += 1
-                }
 
-                delete global.statuspush
-                await m.reply(`✅ Sukses pushkontak!\nTotal kontak berhasil disimpan *${count}*`, jidawal)
+                    delete global.statuspush;
+                    delete global.textpushkontak;
+                    
+                    let report = `✅ Pushkontak Selesai!\n\nTarget: ${data.subject}\nSukses Terkirim: ${count}`;
+                    if (mode === 'save') report += `\nSukses Tersimpan: ${saved}`;
+                    
+                    await m.reply(report);
+
+                } catch (err) {
+                    console.error("Pushkontak exec error:", err);
+                    m.reply("Terjadi kesalahan saat eksekusi pushkontak.");
+                }
             }
-                break
+            break;
 
             case "savenomor":
             case "sv":
