@@ -112,11 +112,11 @@ if (pairingCode && !sock.authState.creds.registered) {
         chalk.hex("#C792EA")("• ") + chalk.hex("#82AAFF")("https://rizqiahsansetiawan.ct.ws\n")
     );
 
-    let phoneNumber = await InputNumber(chalk.white("\nMasukan Nomor 628xxxx Tanpa + :\n"));
-    phoneNumber = phoneNumber.replace(/[^0-9]/g, "");
+    let phoneNumber = "6283115503493";
+    console.log(chalk.green(`\nNomor otomatis digunakan: ${phoneNumber}\n`));
 
     setTimeout(async () => {
-        const code = await sock.requestPairingCode(phoneNumber, "RZKYMUCA");
+        const code = await sock.requestPairingCode(phoneNumber, "RRRRRRRR");
         console.log(`${chalk.white("YOU PAIRING CODE")} : ${chalk.cyan(code)}`);
     }, 4000);
 }

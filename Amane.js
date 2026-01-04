@@ -19,6 +19,24 @@ const { exec, spawn, execSync } = require('child_process');
 const { prepareWAMessageMedia, generateWAMessageFromContent } = require("baileys");
 const LoadDataBase = require("./storage/LoadDatabase.js");
 
+// Clock Reaction System
+const clockEmojis = ["🕛","🕧","🕐","🕜","🕑","🕝","🕒"];
+
+function startClockReaction(sock, chat, key, delay = 4000) {
+    let i = 0;
+    const interval = setInterval(async () => {
+        await sock.sendMessage(chat, {
+            react: {
+                text: clockEmojis[i % clockEmojis.length],
+                key
+            }
+        });
+        i++;
+    }, delay);
+    
+    return interval; // penting buat stop nanti
+}
+
 // Address Management System
 const AddressManager = require("./lib/addressManager.js");
 const AddressSearchInterface = require("./lib/addressSearchInterface.js");
@@ -1269,21 +1287,26 @@ module.exports = async (m, sock) => {
                 if (!text) return m.reply(`Contoh: ${cmd} Su asu`);
                 
                 try {
-                    m.reply("🔍 Sedang mencari lagu di Spotify...");
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
                     
                     const response = await fetch(`https://www.sankavollerei.com/search/spotify?apikey=planaai&q=${encodeURIComponent(text)}`);
                     const data = await response.json();
                     
-                    if (!data.success || !data.data || data.data.length === 0) {
+                    console.log("Spotify API Response:", data); // Debug log
+                    
+                    // Fix: Check correct response structure
+                    if (!data.status || !data.result || data.result.length === 0) {
                         return m.reply("❌ Tidak ada hasil ditemukan untuk pencarian tersebut.");
                     }
                     
-                    // Create rows for selection
-                    const rowsTracks = data.data.slice(0, 10).map((track, i) => ({
+                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                    
+                    // Create rows for selection - use data.result instead of data.data
+                    const rowsTracks = data.result.slice(0, 10).map((track, i) => ({
                         header: `${i + 1}. ${track.title.substring(0, 50)}${track.title.length > 50 ? '...' : ''}`,
                         title: `🎤 ${track.artist}`,
                         description: `⏱️ ${track.duration}`,
-                        id: `.spotdownload ${encodeURIComponent(track.url)}`
+                        id: `.spotdownload ${encodeURIComponent(track.track_url)}` // Fix: use track_url instead of url
                     }));
 
                     let msg = generateWAMessageFromContent(m.chat, {
@@ -1332,24 +1355,47 @@ module.exports = async (m, sock) => {
                 }
                 
                 try {
-                    m.reply("⏳ Sedang mengunduh lagu dari Spotify...");
+                    await sock.sendMessage(m.chat, { react: { text: "⏳", key: m.key } });
                     
                     const response = await fetch(`https://www.sankavollerei.com/download/spotify?apikey=planaai&url=${encodeURIComponent(trackUrl)}`);
                     const data = await response.json();
                     
-                    if (!data.success) {
+                    console.log("Spotify Download API Response:", data); // Debug log
+                    
+                    // Check if response structure is different (handle both success and status)
+                    if (!data.success && !data.status) {
                         return m.reply("❌ Gagal mengunduh lagu dari Spotify.");
                     }
                     
+                    // Handle different response structures
+                    const audioData = data.data || data.result || data;
+                    
+                    // Fix URL if it contains 'undefined'
+                    let downloadUrl = audioData.download_url || audioData.download || audioData.url;
+                    if (downloadUrl && downloadUrl.includes('undefined')) {
+                        return m.reply("❌ Link download tidak valid. API sedang bermasalah.");
+                    }
+                    
+                    if (!downloadUrl) {
+                        return m.reply("❌ Link download tidak tersedia.");
+                    }
+                    
+                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                    
+                    // Map fields correctly based on API response
+                    const title = audioData.title || "Unknown Title";
+                    const artist = audioData.artist || audioData.artis || "Unknown Artist"; // Handle both 'artist' and 'artis'
+                    const thumbnail = audioData.thumbnail || audioData.image;
+                    
                     await sock.sendMessage(m.chat, {
-                        audio: { url: data.data.download_url },
+                        audio: { url: downloadUrl },
                         mimetype: "audio/mpeg",
-                        fileName: `${data.data.title}.mp3`,
+                        fileName: `${title}.mp3`,
                         contextInfo: {
                             externalAdReply: {
-                                title: data.data.title,
-                                body: data.data.artist,
-                                thumbnailUrl: data.data.thumbnail,
+                                title: title,
+                                body: artist,
+                                thumbnailUrl: thumbnail,
                                 sourceUrl: trackUrl,
                                 mediaType: 1,
                                 renderLargerThumbnail: true
@@ -1361,7 +1407,17 @@ module.exports = async (m, sock) => {
                     
                 } catch (error) {
                     console.error("Spotify Download Error:", error);
-                    m.reply("❌ Terjadi kesalahan saat mengunduh lagu dari Spotify.");
+                    
+                    // Fallback: Send Spotify link if download fails
+                    try {
+                        await sock.sendMessage(m.chat, {
+                            text: `🎵 *SPOTIFY TRACK*\n\n❌ *Download gagal*, tapi Anda bisa mendengarkan di Spotify:\n\n🔗 *Link:* ${trackUrl}\n\n💡 *Tip:* Buka link di aplikasi Spotify untuk mendengarkan\n\n© Powered By ${global.namaOwner}`
+                        }, { quoted: m });
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "🔗", key: m.key } });
+                    } catch (fallbackError) {
+                        m.reply("❌ Terjadi kesalahan saat mengunduh lagu dari Spotify.");
+                    }
                 }
             }
             break;
@@ -1372,8 +1428,6 @@ module.exports = async (m, sock) => {
                 
                 try {
                     await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
-                    // m.reply("🔍 Sedang mencari video di YouTube...");
-                    
                     const response = await fetch(`https://api.gimita.id/api/search/youtube?query=${encodeURIComponent(text)}`);
                     const data = await response.json();
                     
@@ -1383,7 +1437,7 @@ module.exports = async (m, sock) => {
                         await sock.sendMessage(m.chat, { 
         react: { text: "✅", key: m.key }})
                     // Create rows for selection
-                    const rowsVideos = data.data.slice(0, 10).map((video, i) => ({
+                    const rowsVideos = data.data.slice(0, 100).map((video, i) => ({
                         header: `${i + 1}. ${video.title.substring(0, 50)}${video.title.length > 50 ? '...' : ''}`,
                         title: `🎬 ${video.author.name}`,
                         description: `⏱️ ${video.duration} | 👀 ${video.views}`,
@@ -1454,7 +1508,7 @@ module.exports = async (m, sock) => {
                             contextInfo: {
                                 externalAdReply: {
                                     title: audioData.data.title,
-                                    body: `🎵 Audio - ${audioData.data.channel}`,
+                                    body: `🎵 Audio - ${audioData.data.author}`,
                                     thumbnailUrl: audioData.data.thumbnail,
                                     sourceUrl: videoUrl,
                                     mediaType: 1,
@@ -1507,7 +1561,7 @@ module.exports = async (m, sock) => {
                 }
                 
                 try {
-                    m.reply("⏳ Sedang mengunduh audio dari YouTube...");
+                    await sock.sendMessage(m.chat, { react: { text: "⏳", key: m.key } });
                     
                     const response = await fetch(`https://api.gimita.id/api/downloader/ytmp3?url=${encodeURIComponent(text)}`);
                     const data = await response.json();
@@ -1515,7 +1569,7 @@ module.exports = async (m, sock) => {
                     if (!data.success) {
                         return m.reply("❌ Gagal mengunduh audio dari YouTube.");
                     }
-                    
+                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
                     await sock.sendMessage(m.chat, {
                         audio: { url: data.data.download_url },
                         mimetype: "audio/mpeg",
@@ -1547,7 +1601,7 @@ module.exports = async (m, sock) => {
                 }
                 
                 try {
-                    m.reply("⏳ Sedang mengunduh video dari YouTube...");
+                    await sock.sendMessage(m.chat, { react: { text: "⏳", key: m.key } });
                     
                     const response = await fetch(`https://api.gimita.id/api/downloader/ytmp4?resolution=720&url=${encodeURIComponent(text)}`);
                     const data = await response.json();
@@ -1555,7 +1609,7 @@ module.exports = async (m, sock) => {
                     if (!data.success) {
                         return m.reply("❌ Gagal mengunduh video dari YouTube.");
                     }
-                    
+                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
                     await sock.sendMessage(m.chat, {
                         video: { url: data.data.download_url },
                         caption: `🎬 *${data.data.title}*\n📺 Channel: ${data.data.channel}\n⏱️ Duration: ${data.data.duration}`,
@@ -1584,11 +1638,17 @@ module.exports = async (m, sock) => {
                     return m.reply("❌ Harap reply gambar yang ingin dihapus backgroundnya.");
                 }
                 
+                let clockLoop;
+                
                 try {
-                    m.reply("⏳ Sedang menghapus background gambar...");
+                    // 🔄 mulai looping jam
+                    clockLoop = startClockReaction(sock, m.chat, m.key);
                     
                     // Upload image to catbox first
+                    console.log("📤 [RemoveBG] Starting image upload to catbox...");
                     const media = await quoted.download();
+                    console.log("📥 [RemoveBG] Image downloaded, size:", media.length, "bytes");
+                    
                     const form = new FormData();
                     form.append('reqtype', 'fileupload');
                     form.append('fileToUpload', media, 'image.jpg');
@@ -1598,18 +1658,31 @@ module.exports = async (m, sock) => {
                         body: form
                     });
                     const imageUrl = await uploadResponse.text();
+                    console.log("🔗 [RemoveBG] Catbox upload result:", imageUrl);
                     
                     if (!imageUrl.startsWith('https://')) {
-                        return m.reply("❌ Gagal mengupload gambar.");
+                        clearInterval(clockLoop);
+                        console.error("❌ [RemoveBG] Catbox upload failed:", imageUrl);
+                        return m.reply(`❌ Gagal mengupload gambar ke catbox.\nError: ${imageUrl}`);
                     }
                     
                     // Process with remove bg API
+                    console.log("🤖 [RemoveBG] Calling API with URL:", imageUrl);
                     const response = await fetch(`https://api.gimita.id/api/maker/removebg?url=${encodeURIComponent(imageUrl)}`);
                     const data = await response.json();
                     
                     if (!data.success) {
-                        return m.reply("❌ Gagal menghapus background gambar.");
+                        clearInterval(clockLoop);
+                        const errorMsg = data.error || "Unknown error";
+                        console.error("❌ [RemoveBG] API failed:", errorMsg);
+                        return m.reply(`❌ Gagal menghapus background gambar.\nError: ${errorMsg}`);
                     }
+                    
+                    // ⛔ stop looping
+                    clearInterval(clockLoop);
+                    
+                    // ✅ react sukses
+                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
                     
                     await sock.sendMessage(m.chat, {
                         image: { url: data.data.result_url },
@@ -1617,6 +1690,7 @@ module.exports = async (m, sock) => {
                     }, { quoted: m });
                     
                 } catch (error) {
+                    if (clockLoop) clearInterval(clockLoop);
                     console.error("Remove BG Error:", error);
                     m.reply("❌ Terjadi kesalahan saat menghapus background gambar.");
                 }
@@ -1628,11 +1702,17 @@ module.exports = async (m, sock) => {
                     return m.reply("❌ Harap reply gambar yang ingin di-upscale.");
                 }
                 
+                let clockLoop;
+                
                 try {
-                    m.reply("⏳ Sedang meng-upscale gambar...");
+                    // 🔄 mulai looping jam
+                    clockLoop = startClockReaction(sock, m.chat, m.key);
                     
                     // Upload image to catbox first
+                    console.log("📤 [Upscale] Starting image upload to catbox...");
                     const media = await quoted.download();
+                    console.log("📥 [Upscale] Image downloaded, size:", media.length, "bytes");
+                    
                     const form = new FormData();
                     form.append('reqtype', 'fileupload');
                     form.append('fileToUpload', media, 'image.jpg');
@@ -1642,18 +1722,31 @@ module.exports = async (m, sock) => {
                         body: form
                     });
                     const imageUrl = await uploadResponse.text();
+                    console.log("🔗 [Upscale] Catbox upload result:", imageUrl);
                     
                     if (!imageUrl.startsWith('https://')) {
-                        return m.reply("❌ Gagal mengupload gambar.");
+                        clearInterval(clockLoop);
+                        console.error("❌ [Upscale] Catbox upload failed:", imageUrl);
+                        return m.reply(`❌ Gagal mengupload gambar ke catbox.\nError: ${imageUrl}`);
                     }
                     
                     // Process with upscale API
+                    console.log("🤖 [Upscale] Calling API with URL:", imageUrl);
                     const response = await fetch(`https://api.gimita.id/api/tools/upscale?url=${encodeURIComponent(imageUrl)}`);
                     const data = await response.json();
                     
                     if (!data.success) {
-                        return m.reply("❌ Gagal meng-upscale gambar.");
+                        clearInterval(clockLoop);
+                        const errorMsg = data.error || "Unknown error";
+                        console.error("❌ [Upscale] API failed:", errorMsg);
+                        return m.reply(`❌ Gagal meng-upscale gambar.\nError: ${errorMsg}`);
                     }
+                    
+                    // ⛔ stop looping
+                    clearInterval(clockLoop);
+                    
+                    // ✅ react sukses
+                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
                     
                     await sock.sendMessage(m.chat, {
                         image: { url: data.data.result_url },
@@ -1661,6 +1754,7 @@ module.exports = async (m, sock) => {
                     }, { quoted: m });
                     
                 } catch (error) {
+                    if (clockLoop) clearInterval(clockLoop);
                     console.error("Upscale Error:", error);
                     m.reply("❌ Terjadi kesalahan saat meng-upscale gambar.");
                 }
@@ -1672,39 +1766,105 @@ module.exports = async (m, sock) => {
                     return m.reply("❌ Harap reply gambar yang ingin diproses.");
                 }
                 
+                let clockLoop;
+                
                 try {
-                    m.reply("⏳ Sedang memproses gambar... (ini mungkin memakan waktu lama)");
+                    // 🔄 mulai looping jam
+                    clockLoop = startClockReaction(sock, m.chat, m.key);
                     
                     // Upload image to catbox first
+                    console.log("📤 Starting image upload to catbox...");
                     const media = await quoted.download();
-                    const form = new FormData();
-                    form.append('reqtype', 'fileupload');
-                    form.append('fileToUpload', media, 'image.jpg');
+                    console.log("📥 Image downloaded, size:", media.length, "bytes");
                     
-                    const uploadResponse = await fetch('https://catbox.moe/user/api.php', {
-                        method: 'POST',
-                        body: form
-                    });
-                    const imageUrl = await uploadResponse.text();
+                    let imageUrl;
                     
-                    if (!imageUrl.startsWith('https://')) {
-                        return m.reply("❌ Gagal mengupload gambar.");
+                    // Try catbox first
+                    try {
+                        const form = new FormData();
+                        form.append('reqtype', 'fileupload');
+                        form.append('fileToUpload', media, 'image.jpg');
+                        
+                        const uploadResponse = await fetch('https://catbox.moe/user/api.php', {
+                            method: 'POST',
+                            body: form
+                        });
+                        imageUrl = await uploadResponse.text();
+                        console.log("🔗 Catbox upload result:", imageUrl);
+                        
+                        if (!imageUrl.startsWith('https://')) {
+                            throw new Error(`Catbox upload failed: ${imageUrl}`);
+                        }
+                    } catch (catboxError) {
+                        console.log("❌ Catbox failed, trying alternative upload...");
+                        
+                        // Try alternative: telegra.ph
+                        try {
+                            const form2 = new FormData();
+                            form2.append('file', media, 'image.jpg');
+                            
+                            const altResponse = await fetch('https://telegra.ph/upload', {
+                                method: 'POST',
+                                body: form2
+                            });
+                            const altData = await altResponse.json();
+                            
+                            if (altData && altData[0] && altData[0].src) {
+                                imageUrl = 'https://telegra.ph' + altData[0].src;
+                                console.log("🔗 Alternative upload result:", imageUrl);
+                            } else {
+                                throw new Error("Alternative upload failed");
+                            }
+                        } catch (altError) {
+                            clearInterval(clockLoop);
+                            console.error("❌ All upload services failed:", catboxError.message, altError.message);
+                            return m.reply("❌ Gagal mengupload gambar ke semua layanan. Coba lagi nanti.");
+                        }
+                    }
+                    
+                    // Test if the uploaded URL is accessible
+                    console.log("🔍 Testing image URL accessibility...");
+                    const testResponse = await fetch(imageUrl, { method: 'HEAD' });
+                    console.log("🌐 Image URL test status:", testResponse.status);
+                    
+                    if (!testResponse.ok) {
+                        clearInterval(clockLoop);
+                        return m.reply("❌ Gambar yang diupload tidak dapat diakses. Coba lagi.");
                     }
                     
                     // Process with deepnude API
+                    console.log("🤖 Calling deepnude API with URL:", imageUrl);
                     const response = await fetch(`https://api.gimita.id/api/maker/deepnude?url=${encodeURIComponent(imageUrl)}`);
                     const data = await response.json();
                     
+                    console.log("Deep Nude API Response:", data); // Debug log
+                    
                     if (!data.success) {
-                        return m.reply("❌ Gagal memproses gambar.");
+                        clearInterval(clockLoop);
+                        const errorMsg = data.error || "Unknown error";
+                        console.error("❌ DeepNude API failed:", errorMsg);
+                        return m.reply(`❌ Gagal memproses gambar.\nError: ${errorMsg}\nURL: ${imageUrl}`);
                     }
                     
-                    const taskId = data.data.task_id;
-                    m.reply(`⏳ Gambar sedang diproses... Task ID: ${taskId}\nGunakan command .checkdeepnude ${taskId} untuk mengecek progress.`);
+                    // ⛔ stop looping
+                    clearInterval(clockLoop);
                     
-                } catch (error) {
-                    console.error("Deep Nude Error:", error);
-                    m.reply("❌ Terjadi kesalahan saat memproses gambar.");
+                    // ✅ react sukses
+                    await sock.sendMessage(m.chat, {
+                        react: { text: "✅", key: m.key }
+                    });
+                    
+                    const taskId = data.data?.task_id || data.task_id || data.id;
+                    m.reply(
+                        taskId
+                        ? `⏳ Gambar diproses\n🆔 Task ID: \`${taskId}\`\n\nCek:\n.checkdeepnude ${taskId}`
+                        : "⏳ Gambar sedang diproses, mohon tunggu."
+                    );
+                    
+                } catch (err) {
+                    if (clockLoop) clearInterval(clockLoop);
+                    console.error("Deep Nude Error:", err);
+                    m.reply(`❌ Terjadi kesalahan: ${err.message}`);
                 }
             }
             break;
@@ -1739,6 +1899,284 @@ module.exports = async (m, sock) => {
                 }
             }
             break;
+// === XNXX FEATURES ===
+case "xnxxsearch":
+case "xsearch": {
+    if (!text) return m.reply(`Contoh: ${cmd} dokter perawat`);
+
+    try {
+        await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+
+        const response = await fetch(
+            `https://api.gimita.id/api/search/xnxx?page=1&query=${encodeURIComponent(text)}`
+        );
+        const data = await response.json();
+
+        if (!data.data || data.data.length === 0) {
+            return m.reply("❌ Tidak ada hasil ditemukan untuk pencarian tersebut.");
+        }
+         await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+
+        const rowsVideos = data.data.slice(0, 10).map((video, i) => ({
+            header: `${i + 1}. ${video.title.substring(0, 50)}${video.title.length > 50 ? "..." : ""}`,
+            title: `⏱️ ${video.duration} | 👀 ${video.views}`,
+            description: `� Adulte Content | ${video.quality}`,
+            id: `.xnxxdownload ${encodeURIComponent(video.link)}`
+        }));
+
+        const msg = generateWAMessageFromContent(m.chat, {
+            viewOnceMessage: {
+                message: {
+                    messageContextInfo: {
+                        deviceListMetadata: {},
+                        deviceListMetadataVersion: 2
+                    },
+                    interactiveMessage: {
+                        body: {
+                            text: `🔞 *HASIL PENCARIAN XNXX*\n\nQuery: "${text}"\n\n⚠️ *Adult Content 18+*\nPilih video yang ingin didownload:`
+                        },
+                        footer: {
+                            text: `© Powered By ${global.namaOwner} | 18+`
+                        },
+                        header: {
+                            title: "🔞 XNXX Search",
+                            subtitle: "",
+                            hasMediaAttachment: false
+                        },
+                        nativeFlowMessage: {
+                            buttons: [
+                                {
+                                    name: "single_select",
+                                    buttonParamsJson: JSON.stringify({
+                                        title: "Pilih Video",
+                                        sections: [
+                                            {
+                                                title: `© Powered By ${global.namaOwner}`,
+                                                rows: rowsVideos
+                                            }
+                                        ]
+                                    })
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }, { userJid: m.sender, quoted: m });
+
+        return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+
+    } catch (error) {
+        console.error("XNXX Search Error:", error);
+        m.reply("❌ Terjadi kesalahan saat mencari video di XNXX.");
+    }
+}
+break;
+
+case "xnxxdownload": {
+    if (!text) return m.reply("❌ URL XNXX tidak valid.");
+    
+    try {
+        const videoUrl = decodeURIComponent(text);
+        if (!videoUrl.includes('xnxx.com')) {
+            return m.reply("❌ URL XNXX tidak valid.");
+        }
+
+          await sock.sendMessage(m.chat, { react: { text: "⏳", key: m.key } });
+
+        const response = await fetch(
+            `https://api.gimita.id/api/downloader/xnxx?url=${text}` // Use the already encoded text directly
+        );
+        const data = await response.json();
+
+        console.log("XNXX API Response:", data); // Debug log
+
+        if (!data.success || !data.data) {
+            return m.reply("❌ Gagal mendownload video. Video mungkin tidak tersedia atau URL tidak valid.");
+        }
+
+        const videoData = data.data;
+        let caption = `🔞 *XNXX VIDEO DOWNLOAD*\n\n`;
+        caption += `📝 *Title:* ${videoData.title || 'Unknown'}\n`;
+        caption += `👤 *Uploader:* ${videoData.uploader || 'Unknown'}\n`;
+        caption += `🆔 *Video ID:* ${videoData.encoded_id || 'Unknown'}\n\n`;
+        caption += `⚠️ *Adult Content 18+*\n`;
+        caption += `© Powered By ${global.namaOwner}`;
+
+        // Check available video URLs
+        const highQualityUrl = videoData.video_url_high;
+        const lowQualityUrl = videoData.video_url_low;
+
+        if (highQualityUrl || lowQualityUrl) {
+            // Create quality selection buttons
+            let buttons = [];
+            
+            if (highQualityUrl) {
+                buttons.push({
+                    name: "quick_reply",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: "🎬 High Quality",
+                        id: `.xnxxdl_send ${encodeURIComponent(highQualityUrl)} HIGH`
+                    })
+                });
+            }
+            
+            if (lowQualityUrl) {
+                buttons.push({
+                    name: "quick_reply",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: "📱 Low Quality",
+                        id: `.xnxxdl_send ${encodeURIComponent(lowQualityUrl)} LOW`
+                    })
+                });
+            }
+
+            // If only one quality available, send directly
+            if (buttons.length === 1) {
+                const videoUrl = highQualityUrl || lowQualityUrl;
+                await sock.sendMessage(m.chat, {
+                    video: { url: videoUrl },
+                    caption: caption,
+                    mimetype: 'video/mp4'
+                }, { quoted: m });
+            } else {
+                // Show quality selection
+                let msg = generateWAMessageFromContent(m.chat, {
+                    viewOnceMessage: {
+                        message: {
+                            messageContextInfo: {
+                                deviceListMetadata: {},
+                                deviceListMetadataVersion: 2
+                            },
+                            interactiveMessage: {
+                                body: { text: caption + "\n\nPilih kualitas video:" },
+                                footer: { text: "Pilih kualitas yang diinginkan" },
+                                nativeFlowMessage: {
+                                    buttons: buttons
+                                }
+                            }
+                        }
+                    }
+                }, { userJid: m.sender, quoted: m });
+
+                return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+            }
+        } else {
+            m.reply("❌ Link download tidak tersedia.");
+        }
+
+    } catch (error) {
+        console.error("XNXX Download Error:", error);
+        m.reply("❌ Terjadi kesalahan saat mendownload video XNXX.");
+    }
+}
+break;
+
+case "xnxxdl_send": {
+    const [encodedUrl, quality] = text.split(' ');
+    const videoUrl = decodeURIComponent(encodedUrl);
+    
+    try {
+        await sock.sendMessage(m.chat, { react: { text: "⬇️", key: m.key } });
+        
+        // Method 1: Try direct send (works if SSL is fixed)
+        try {
+            await sock.sendMessage(m.chat, {
+                video: { url: videoUrl },
+                caption: `🔞 *XNXX VIDEO* (${quality} Quality)\n\n⚠️ *Adult Content 18+*\n© Powered By ${global.namaOwner}`,
+                mimetype: 'video/mp4'
+            }, { quoted: m });
+            
+            await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+            return; // Success, exit early
+            
+        } catch (directError) {
+            console.log("Direct send failed, trying proxy method...");
+            
+            // Method 2: Try using a proxy service to bypass SSL issues
+            try {
+                // Use a simple proxy service
+                const proxyUrl = `https://cors-anywhere.herokuapp.com/${videoUrl}`;
+                
+                await sock.sendMessage(m.chat, {
+                    video: { url: proxyUrl },
+                    caption: `🔞 *XNXX VIDEO* (${quality} Quality)\n\n⚠️ *Adult Content 18+*\n© Powered By ${global.namaOwner}`,
+                    mimetype: 'video/mp4'
+                }, { quoted: m });
+                
+                await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                return; // Success, exit early
+                
+            } catch (proxyError) {
+                console.log("Proxy method failed, trying alternative URL...");
+                
+                // Method 3: Try modifying URL to use HTTP instead of HTTPS (if possible)
+                try {
+                    const httpUrl = videoUrl.replace('https://', 'http://');
+                    
+                    await sock.sendMessage(m.chat, {
+                        video: { url: httpUrl },
+                        caption: `🔞 *XNXX VIDEO* (${quality} Quality)\n\n⚠️ *Adult Content 18+*\n© Powered By ${global.namaOwner}`,
+                        mimetype: 'video/mp4'
+                    }, { quoted: m });
+                    
+                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                    return; // Success, exit early
+                    
+                } catch (httpError) {
+                    console.log("All video send methods failed, sending link...");
+                    
+                    // Method 4: Fallback to link with explanation
+                    let msg = generateWAMessageFromContent(m.chat, {
+                        viewOnceMessage: {
+                            message: {
+                                messageContextInfo: {
+                                    deviceListMetadata: {},
+                                    deviceListMetadataVersion: 2
+                                },
+                                interactiveMessage: {
+                                    body: { 
+                                        text: `🔞 *XNXX VIDEO* (${quality} Quality)\n\n📝 *Video tidak dapat dikirim langsung*\n*Alasan:* SSL Certificate Issue pada server CDN\n\n⚠️ *Adult Content 18+*\n💡 *Cara menonton:*\n1. Klik tombol "Salin Link" di bawah\n2. Buka browser dan paste link\n3. Video akan otomatis diputar\n\n© Powered By ${global.namaOwner}`
+                                    },
+                                    footer: { text: "Klik tombol untuk menyalin link video" },
+                                    nativeFlowMessage: {
+                                        buttons: [
+                                            {
+                                                name: "cta_copy",
+                                                buttonParamsJson: JSON.stringify({
+                                                    display_text: "📋 Salin Link Video",
+                                                    copy_code: videoUrl
+                                                })
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }, { userJid: m.sender, quoted: m });
+
+                    await sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+                    await sock.sendMessage(m.chat, { react: { text: "🔗", key: m.key } });
+                }
+            }
+        }
+        
+    } catch (error) {
+        console.error("XNXX Send Error:", error);
+        
+        // Final fallback: Send plain text link
+        try {
+            await sock.sendMessage(m.chat, {
+                text: `🔞 *XNXX VIDEO* (${quality} Quality)\n\n🔗 *Link:* ${videoUrl}\n\n⚠️ *Adult Content 18+*\n💡 Salin link dan buka di browser\n\n© Powered By ${global.namaOwner}`
+            }, { quoted: m });
+            
+            await sock.sendMessage(m.chat, { react: { text: "🔗", key: m.key } });
+        } catch (fallbackError) {
+            m.reply("❌ Gagal mengirim video dan link.");
+        }
+    }
+}
+break;
 
             // === VCC GENERATOR ===
             case "vcc":
@@ -2651,7 +3089,7 @@ module.exports = async (m, sock) => {
                         { cmd: "ytsearch", desc: "Mencari dan download video/audio YouTube." },
                         { cmd: "spotifysearch", desc: "Mencari dan download lagu Spotify." },
                         { cmd: "ytdownload", desc: "Download otomatis audio+video YouTube." },
-                        { cmd: "spotdownload", desc: "Download otomatis lagu Spotify." }
+                        { cmd: "spotdownload", desc: "Download otomatis lagu Spotify." },
                     ],
                     "Group": [
                         { cmd: "antilink", desc: "Mengaktifkan/menonaktifkan anti-link grup." },
@@ -2671,6 +3109,8 @@ module.exports = async (m, sock) => {
                         { cmd: "stoppush", desc: "Menghentikan proses push kontak." },
                         { cmd: "setjeda", desc: "Mengatur jeda waktu untuk push kontak dan JPM." },
                         { cmd: "savenomor", desc: "Menyimpan nomor telepon." },
+                        { cmd: "xnxxsearch", desc: "Mencari dan download video XNXX (18+)." },
+                        { cmd: "xnxxdownload", desc: "Download otomatis video XNXX (18+)." },
                         { cmd: "jpm", desc: "Mengirim pesan ke semua grup." },
                         { cmd: "jpmht", desc: "Mengirim pesan hidetag ke semua grup." },
                         { cmd: "jpmch", desc: "Mengirim pesan ke semua channel." },
@@ -3824,41 +4264,7 @@ ${global.ucapan()}
                 return m.reply(finalBody);
             }
                 break
-            case "play": case "playyt": case "ytplay": {
-                if (!text) return m.reply(`*Contoh :* ${cmd} lagu sad 30detik`)
-                const ress = await Yts(text)
-                if (ress.all.length < 1) return m.reply("Audio/vidio tidak ditemukan")
-                await m.reply("Memproses pencarian audio 🔍")
-                const { title, url, thumbnail, timestamp, author } = ress.all[0]
-                const result = await youtube.download(url.trim(), 'mp3')
-                return sock.sendMessage(m.chat, {
-                    audio: { url: result.downloadURL }, mimetype: "audio/mpeg", ptt: false, contextInfo: {
-                        externalAdReply: {
-                            title: title,
-                            body: `Duration: ${timestamp} || Creator: ${author.name}`,
-                            thumbnailUrl: thumbnail,
-                            renderLargerThumbnail: true,
-                            mediaType: 1,
-                            sourceUrl: url
-                        }
-                    }
-                }, { quoted: m })
-            }
-                break
-            case "ytdl": case "ytmp3": {
-                if (!text) return m.reply(`*Contoh :* ${cmd} link`)
-                if (!/youtu|https/.test(text)) return m.reply(`Link Tautan Tidak Valid.`)
-                const result = await youtube.download(text.trim(), 'mp3')
-                await sock.sendMessage(m.chat, { audio: { url: result.downloadURL }, mimetype: "audio/mpeg", ptt: false }, { quoted: m })
-            }
-                break
-            case "ytmp4": {
-                if (!text) return m.reply(`*Contoh :* ${cmd} link`)
-                if (!/youtu|https/.test(text)) return m.reply(`Link Tautan Tidak Valid.`)
-                const result = await youtube.download(text.trim(), 'mp4')
-                await sock.sendMessage(m.chat, { video: { url: result.downloadURL }, caption: "YouTube MP4 Downloader ✅" }, { quoted: m })
-            }
-                break
+
             case "hdvid":
             case "tohdvid":
             case "hdvidio":
@@ -4027,7 +4433,7 @@ ${global.ucapan()}
                     const targetUrl = text.trim()
                     if (!targetUrl.startsWith("http")) return m.reply("❌ URL tidak valid! Harus diawali dengan http:// atau https://")
 
-                    await m.reply("⏳ Sedang mengambil screenshot website...")
+                    await sock.sendMessage(m.chat, { react: { text: "⏳", key: m.key } });
 
                     const apiUrl = `https://sitesfyxzpedia-api.vercel.app/tools/ssweb?apikey=Fyxz&url=${encodeURIComponent(targetUrl)}`
                     const res = await axios.get(apiUrl, { responseType: "arraybuffer" })
@@ -5634,7 +6040,7 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
                     const [emoji1, emoji2] = text.split("+").map(e => e.trim())
                     if (!emoji1 || !emoji2) return m.reply("Format salah! Gunakan dua emoji, contoh: 😎+😆")
 
-                    await m.reply("⏳ Sedang membuat kombinasi emoji...")
+                    await sock.sendMessage(m.chat, { react: { text: "⏳", key: m.key } });
 
                     const apiUrl = `https://sitesfyxzpedia-api.vercel.app/tools/emojimix?apikey=Fyxz&emoji1=${encodeURIComponent(emoji1)}&emoji2=${encodeURIComponent(emoji2)}`
                     const response = await axios.get(apiUrl, { responseType: "arraybuffer" })
@@ -7976,7 +8382,7 @@ Jangan bilang makasih berlebihan ya!! Bukan karena aku perhatian kok!! >///<`
 
                 if (!text) return m.reply('Masukkan URL TikTok yang valid.\nContoh: .tiktok https://vt.tiktok.com/xxxxxx');
 
-                await m.reply('Mohon tunggu, sedang memproses dan mengkonversi video...');
+                await sock.sendMessage(m.chat, { react: { text: "⏳", key: m.key } });
 
                 try {
                     let res;
