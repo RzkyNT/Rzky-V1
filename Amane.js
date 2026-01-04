@@ -3,6 +3,7 @@ const chalk = require("chalk");
 const fs = require("fs");
 const axios = require("axios");
 const fetch = require("node-fetch");
+const FormData = require("form-data");
 const ssh2 = require("ssh2");
 const path = require("path");
 const Yts = require("yt-search");
@@ -1262,6 +1263,513 @@ module.exports = async (m, sock) => {
                 break;
 
 
+            // === SPOTIFY FEATURES ===
+            case "spotifysearch":
+            case "spotsearch": {
+                if (!text) return m.reply(`Contoh: ${cmd} Su asu`);
+                
+                try {
+                    m.reply("🔍 Sedang mencari lagu di Spotify...");
+                    
+                    const response = await fetch(`https://www.sankavollerei.com/search/spotify?apikey=planaai&q=${encodeURIComponent(text)}`);
+                    const data = await response.json();
+                    
+                    if (!data.success || !data.data || data.data.length === 0) {
+                        return m.reply("❌ Tidak ada hasil ditemukan untuk pencarian tersebut.");
+                    }
+                    
+                    // Create rows for selection
+                    const rowsTracks = data.data.slice(0, 10).map((track, i) => ({
+                        header: `${i + 1}. ${track.title.substring(0, 50)}${track.title.length > 50 ? '...' : ''}`,
+                        title: `🎤 ${track.artist}`,
+                        description: `⏱️ ${track.duration}`,
+                        id: `.spotdownload ${encodeURIComponent(track.url)}`
+                    }));
+
+                    let msg = generateWAMessageFromContent(m.chat, {
+                        viewOnceMessage: {
+                            message: {
+                                messageContextInfo: {
+                                    deviceListMetadata: {},
+                                    deviceListMetadataVersion: 2
+                                },
+                                interactiveMessage: {
+                                    body: { text: `🎵 *HASIL PENCARIAN SPOTIFY*\n\nQuery: "${text}"\n\nPilih lagu yang ingin didownload:` },
+                                    footer: { text: `© Powered By ${global.namaOwner}` },
+                                    header: { title: "🎵 Spotify Search", subtitle: "", hasMediaAttachment: false },
+                                    nativeFlowMessage: {
+                                        buttons: [
+                                            {
+                                                name: "single_select",
+                                                buttonParamsJson: JSON.stringify({
+                                                    title: "Pilih Lagu",
+                                                    sections: [{
+                                                        title: `© Powered By ${global.namaOwner}`,
+                                                        rows: rowsTracks
+                                                    }]
+                                                })
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }, { userJid: m.sender, quoted: m });
+                    
+                    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+                    
+                } catch (error) {
+                    console.error("Spotify Search Error:", error);
+                    m.reply("❌ Terjadi kesalahan saat mencari lagu di Spotify.");
+                }
+            }
+            break;
+
+            case "spotdownload": {
+                const trackUrl = decodeURIComponent(text);
+                if (!trackUrl || !trackUrl.includes("spotify.com")) {
+                    return m.reply("❌ URL Spotify tidak valid.");
+                }
+                
+                try {
+                    m.reply("⏳ Sedang mengunduh lagu dari Spotify...");
+                    
+                    const response = await fetch(`https://www.sankavollerei.com/download/spotify?apikey=planaai&url=${encodeURIComponent(trackUrl)}`);
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        return m.reply("❌ Gagal mengunduh lagu dari Spotify.");
+                    }
+                    
+                    await sock.sendMessage(m.chat, {
+                        audio: { url: data.data.download_url },
+                        mimetype: "audio/mpeg",
+                        fileName: `${data.data.title}.mp3`,
+                        contextInfo: {
+                            externalAdReply: {
+                                title: data.data.title,
+                                body: data.data.artist,
+                                thumbnailUrl: data.data.thumbnail,
+                                sourceUrl: trackUrl,
+                                mediaType: 1,
+                                renderLargerThumbnail: true
+                            }
+                        }
+                    }, { quoted: m });
+                    
+                    m.reply("✅ Lagu berhasil didownload dari Spotify!");
+                    
+                } catch (error) {
+                    console.error("Spotify Download Error:", error);
+                    m.reply("❌ Terjadi kesalahan saat mengunduh lagu dari Spotify.");
+                }
+            }
+            break;
+
+            // === YOUTUBE FEATURES ===
+            case "ytsearch": {
+                if (!text) return m.reply(`Contoh: ${cmd} ceramah ustadz abdul somad`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    // m.reply("🔍 Sedang mencari video di YouTube...");
+                    
+                    const response = await fetch(`https://api.gimita.id/api/search/youtube?query=${encodeURIComponent(text)}`);
+                    const data = await response.json();
+                    
+                    if (!data.success || !data.data || data.data.length === 0) {
+                        return m.reply("❌ Tidak ada hasil ditemukan untuk pencarian tersebut.");
+                    }
+                        await sock.sendMessage(m.chat, { 
+        react: { text: "✅", key: m.key }})
+                    // Create rows for selection
+                    const rowsVideos = data.data.slice(0, 10).map((video, i) => ({
+                        header: `${i + 1}. ${video.title.substring(0, 50)}${video.title.length > 50 ? '...' : ''}`,
+                        title: `🎬 ${video.author.name}`,
+                        description: `⏱️ ${video.duration} | 👀 ${video.views}`,
+                        id: `.ytdownload ${encodeURIComponent(video.url)}`
+                    }));
+
+                    let msg = generateWAMessageFromContent(m.chat, {
+                        viewOnceMessage: {
+                            message: {
+                                messageContextInfo: {
+                                    deviceListMetadata: {},
+                                    deviceListMetadataVersion: 2
+                                },
+                                interactiveMessage: {
+                                    body: { text: `🔍 *HASIL PENCARIAN YOUTUBE*\n\nQuery: "${text}"\n\nPilih video yang ingin didownload:` },
+                                    footer: { text: `© Powered By ${global.namaOwner}` },
+                                    header: { title: "🎬 YouTube Search", subtitle: "", hasMediaAttachment: false },
+                                    nativeFlowMessage: {
+                                        buttons: [
+                                            {
+                                                name: "single_select",
+                                                buttonParamsJson: JSON.stringify({
+                                                    title: "Pilih Video",
+                                                    sections: [{
+                                                        title: `© Powered By ${global.namaOwner}`,
+                                                        rows: rowsVideos
+                                                    }]
+                                                })
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }, { userJid: m.sender, quoted: m });
+                    
+                    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+                    
+                } catch (error) {
+                    console.error("YouTube Search Error:", error);
+                    m.reply("❌ Terjadi kesalahan saat mencari video di YouTube.");
+                }
+            }
+            break;
+
+            case "ytdownload": {
+                const videoUrl = decodeURIComponent(text);
+                if (!videoUrl || !videoUrl.includes("youtu")) {
+                    return m.reply("❌ URL YouTube tidak valid.");
+                }
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "⏱️", key: m.key } });
+                    
+                    // Download Audio (MP3)
+                    const audioResponse = await fetch(`https://api.gimita.id/api/downloader/ytmp3?url=${encodeURIComponent(videoUrl)}`);
+                    const audioData = await audioResponse.json();
+                    
+                    // Download Video (MP4)
+                    const videoResponse = await fetch(`https://api.gimita.id/api/downloader/ytmp4?resolution=720&url=${encodeURIComponent(videoUrl)}`);
+                    const videoData = await videoResponse.json();
+                    
+                    if (audioData.success) {
+                        await sock.sendMessage(m.chat, {
+                            audio: { url: audioData.data.download_url },
+                            mimetype: "audio/mpeg",
+                            fileName: `${audioData.data.title}.mp3`,
+                            contextInfo: {
+                                externalAdReply: {
+                                    title: audioData.data.title,
+                                    body: `🎵 Audio - ${audioData.data.channel}`,
+                                    thumbnailUrl: audioData.data.thumbnail,
+                                    sourceUrl: videoUrl,
+                                    mediaType: 1,
+                                    renderLargerThumbnail: true
+                                }
+                            }
+                        }, { quoted: m });
+                    }
+                    
+                    if (videoData.success) {
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        await sock.sendMessage(m.chat, {
+                            video: { url: videoData.data.download_url },
+                            caption: `🎬 *${videoData.data.title}*\n📺 Channel: ${videoData.data.channel}\n⏱️ Duration: ${videoData.data.duration}`,
+                            contextInfo: {
+                                externalAdReply: {
+                                    title: videoData.data.title,
+                                    body: `🎬 Video - ${videoData.data.channel}`,
+                                    thumbnailUrl: videoData.data.thumbnail,
+                                    sourceUrl: videoUrl,
+                                    mediaType: 1,
+                                    renderLargerThumbnail: true
+                                }
+                            }
+                        }, { quoted: m });
+                    }
+                    
+                    if (!audioData.success && !videoData.success) {
+                        m.reply("❌ Gagal mendownload audio dan video. Silakan coba lagi.");
+                    } else if (!audioData.success) {
+                        m.reply("⚠️ Video berhasil didownload, tetapi audio gagal.");
+                    } else if (!videoData.success) {
+                        m.reply("⚠️ Audio berhasil didownload, tetapi video gagal.");
+                    } else {
+                        m.reply("✅ Audio dan video berhasil didownload!");
+                    }
+                    
+                } catch (error) {
+                    console.error("YouTube Download Error:", error);
+                    m.reply("❌ Terjadi kesalahan saat mendownload dari YouTube.");
+                }
+            }
+            break;
+
+            case "ytmp3": {
+                if (!text) return m.reply(`Contoh: ${cmd} https://youtu.be/vYbb0N5IYEM`);
+                
+                if (!text.includes("youtu")) {
+                    return m.reply("❌ Harap masukkan URL YouTube yang valid.");
+                }
+                
+                try {
+                    m.reply("⏳ Sedang mengunduh audio dari YouTube...");
+                    
+                    const response = await fetch(`https://api.gimita.id/api/downloader/ytmp3?url=${encodeURIComponent(text)}`);
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        return m.reply("❌ Gagal mengunduh audio dari YouTube.");
+                    }
+                    
+                    await sock.sendMessage(m.chat, {
+                        audio: { url: data.data.download_url },
+                        mimetype: "audio/mpeg",
+                        fileName: `${data.data.title}.mp3`,
+                        contextInfo: {
+                            externalAdReply: {
+                                title: data.data.title,
+                                body: data.data.channel,
+                                thumbnailUrl: data.data.thumbnail,
+                                sourceUrl: text,
+                                mediaType: 1,
+                                renderLargerThumbnail: true
+                            }
+                        }
+                    }, { quoted: m });
+                    
+                } catch (error) {
+                    console.error("YouTube MP3 Download Error:", error);
+                    m.reply("❌ Terjadi kesalahan saat mengunduh audio dari YouTube.");
+                }
+            }
+            break;
+
+            case "ytmp4": {
+                if (!text) return m.reply(`Contoh: ${cmd} https://youtu.be/vYbb0N5IYEM`);
+                
+                if (!text.includes("youtu")) {
+                    return m.reply("❌ Harap masukkan URL YouTube yang valid.");
+                }
+                
+                try {
+                    m.reply("⏳ Sedang mengunduh video dari YouTube...");
+                    
+                    const response = await fetch(`https://api.gimita.id/api/downloader/ytmp4?resolution=720&url=${encodeURIComponent(text)}`);
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        return m.reply("❌ Gagal mengunduh video dari YouTube.");
+                    }
+                    
+                    await sock.sendMessage(m.chat, {
+                        video: { url: data.data.download_url },
+                        caption: `🎬 *${data.data.title}*\n📺 Channel: ${data.data.channel}\n⏱️ Duration: ${data.data.duration}`,
+                        contextInfo: {
+                            externalAdReply: {
+                                title: data.data.title,
+                                body: data.data.channel,
+                                thumbnailUrl: data.data.thumbnail,
+                                sourceUrl: text,
+                                mediaType: 1,
+                                renderLargerThumbnail: true
+                            }
+                        }
+                    }, { quoted: m });
+                    
+                } catch (error) {
+                    console.error("YouTube MP4 Download Error:", error);
+                    m.reply("❌ Terjadi kesalahan saat mengunduh video dari YouTube.");
+                }
+            }
+            break;
+
+            // === IMAGE PROCESSING FEATURES ===
+            case "removebg": {
+                if (!quoted || !quoted.mimetype || !quoted.mimetype.startsWith("image/")) {
+                    return m.reply("❌ Harap reply gambar yang ingin dihapus backgroundnya.");
+                }
+                
+                try {
+                    m.reply("⏳ Sedang menghapus background gambar...");
+                    
+                    // Upload image to catbox first
+                    const media = await quoted.download();
+                    const form = new FormData();
+                    form.append('reqtype', 'fileupload');
+                    form.append('fileToUpload', media, 'image.jpg');
+                    
+                    const uploadResponse = await fetch('https://catbox.moe/user/api.php', {
+                        method: 'POST',
+                        body: form
+                    });
+                    const imageUrl = await uploadResponse.text();
+                    
+                    if (!imageUrl.startsWith('https://')) {
+                        return m.reply("❌ Gagal mengupload gambar.");
+                    }
+                    
+                    // Process with remove bg API
+                    const response = await fetch(`https://api.gimita.id/api/maker/removebg?url=${encodeURIComponent(imageUrl)}`);
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        return m.reply("❌ Gagal menghapus background gambar.");
+                    }
+                    
+                    await sock.sendMessage(m.chat, {
+                        image: { url: data.data.result_url },
+                        caption: "✅ Background berhasil dihapus!"
+                    }, { quoted: m });
+                    
+                } catch (error) {
+                    console.error("Remove BG Error:", error);
+                    m.reply("❌ Terjadi kesalahan saat menghapus background gambar.");
+                }
+            }
+            break;
+
+            case "upscale": {
+                if (!quoted || !quoted.mimetype || !quoted.mimetype.startsWith("image/")) {
+                    return m.reply("❌ Harap reply gambar yang ingin di-upscale.");
+                }
+                
+                try {
+                    m.reply("⏳ Sedang meng-upscale gambar...");
+                    
+                    // Upload image to catbox first
+                    const media = await quoted.download();
+                    const form = new FormData();
+                    form.append('reqtype', 'fileupload');
+                    form.append('fileToUpload', media, 'image.jpg');
+                    
+                    const uploadResponse = await fetch('https://catbox.moe/user/api.php', {
+                        method: 'POST',
+                        body: form
+                    });
+                    const imageUrl = await uploadResponse.text();
+                    
+                    if (!imageUrl.startsWith('https://')) {
+                        return m.reply("❌ Gagal mengupload gambar.");
+                    }
+                    
+                    // Process with upscale API
+                    const response = await fetch(`https://api.gimita.id/api/tools/upscale?url=${encodeURIComponent(imageUrl)}`);
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        return m.reply("❌ Gagal meng-upscale gambar.");
+                    }
+                    
+                    await sock.sendMessage(m.chat, {
+                        image: { url: data.data.result_url },
+                        caption: "✅ Gambar berhasil di-upscale!"
+                    }, { quoted: m });
+                    
+                } catch (error) {
+                    console.error("Upscale Error:", error);
+                    m.reply("❌ Terjadi kesalahan saat meng-upscale gambar.");
+                }
+            }
+            break;
+
+            case "deepnude": {
+                if (!quoted || !quoted.mimetype || !quoted.mimetype.startsWith("image/")) {
+                    return m.reply("❌ Harap reply gambar yang ingin diproses.");
+                }
+                
+                try {
+                    m.reply("⏳ Sedang memproses gambar... (ini mungkin memakan waktu lama)");
+                    
+                    // Upload image to catbox first
+                    const media = await quoted.download();
+                    const form = new FormData();
+                    form.append('reqtype', 'fileupload');
+                    form.append('fileToUpload', media, 'image.jpg');
+                    
+                    const uploadResponse = await fetch('https://catbox.moe/user/api.php', {
+                        method: 'POST',
+                        body: form
+                    });
+                    const imageUrl = await uploadResponse.text();
+                    
+                    if (!imageUrl.startsWith('https://')) {
+                        return m.reply("❌ Gagal mengupload gambar.");
+                    }
+                    
+                    // Process with deepnude API
+                    const response = await fetch(`https://api.gimita.id/api/maker/deepnude?url=${encodeURIComponent(imageUrl)}`);
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        return m.reply("❌ Gagal memproses gambar.");
+                    }
+                    
+                    const taskId = data.data.task_id;
+                    m.reply(`⏳ Gambar sedang diproses... Task ID: ${taskId}\nGunakan command .checkdeepnude ${taskId} untuk mengecek progress.`);
+                    
+                } catch (error) {
+                    console.error("Deep Nude Error:", error);
+                    m.reply("❌ Terjadi kesalahan saat memproses gambar.");
+                }
+            }
+            break;
+
+            case "checkdeepnude": {
+                if (!text) return m.reply(`Contoh: ${cmd} ae9e90cb-98d6-4d23-b0bd-8734162ef917`);
+                
+                try {
+                    const response = await fetch(`https://api.gimita.id/api/maker/deepnude-status?taskId=${text}`);
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        return m.reply("❌ Task ID tidak ditemukan atau sudah expired.");
+                    }
+                    
+                    if (data.data.status === "completed") {
+                        await sock.sendMessage(m.chat, {
+                            image: { url: data.data.result_url },
+                            caption: "✅ Proses selesai!"
+                        }, { quoted: m });
+                    } else if (data.data.status === "processing") {
+                        m.reply(`⏳ Masih dalam proses... Progress: ${data.data.progress || 0}%`);
+                    } else if (data.data.status === "failed") {
+                        m.reply("❌ Proses gagal. Silakan coba lagi dengan gambar yang berbeda.");
+                    } else {
+                        m.reply(`📊 Status: ${data.data.status}`);
+                    }
+                    
+                } catch (error) {
+                    console.error("Check Deep Nude Error:", error);
+                    m.reply("❌ Terjadi kesalahan saat mengecek status.");
+                }
+            }
+            break;
+
+            // === VCC GENERATOR ===
+            case "vcc":
+            case "generatevcc": {
+                const binType = text || "Visa";
+                
+                try {
+                    const response = await fetch(`https://www.sankavollerei.com/tools/vcc?apikey=planaai&bin=${binType}`);
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        return m.reply("❌ Gagal generate VCC.");
+                    }
+                    
+                    let result = "💳 *VIRTUAL CREDIT CARD*\n\n";
+                    result += `🏦 Bank: ${data.data.bank}\n`;
+                    result += `�  Type: ${data.data.type}\n`;
+                    result += `�  Number: ${data.result.card_number}\n`;
+                    result += `� Exp:iry: ${data.result.expiration_date}\n`;
+                    result += `🔐 CVV: ${data.result.cvv}\n\n`;
+                    result += "⚠️ *Disclaimer: Hanya untuk testing, jangan disalahgunakan!*";
+                    
+                    m.reply(result);
+                    
+                } catch (error) {
+                    console.error("VCC Generator Error:", error);
+                    m.reply("❌ Terjadi kesalahan saat generate VCC.");
+                }
+            }
+            break;
+
             // === ADMIN & COURIER CRM COMMANDS ===
             case "listorder": {
                 const crm = loadCrmData();
@@ -2126,6 +2634,11 @@ module.exports = async (m, sock) => {
                         { cmd: "iqc", desc: "Membuat gambar kutipan iPhone." },
                         { cmd: "hd", desc: "Meningkatkan kualitas gambar menjadi HD." },
                         { cmd: "hdvid", desc: "Meningkatkan kualitas video menjadi HD." },
+                        { cmd: "removebg", desc: "Menghapus background gambar." },
+                        { cmd: "upscale", desc: "Meng-upscale gambar untuk kualitas lebih tinggi." },
+                        { cmd: "deepnude", desc: "Memproses gambar dengan AI (18+)." },
+                        { cmd: "checkdeepnude", desc: "Mengecek status proses deepnude." },
+                        { cmd: "vcc", desc: "Generate Virtual Credit Card untuk testing." },
                         { cmd: "ping", desc: "Mengecek kecepatan dan status bot." }
                     ],
                     "Downloader": [
@@ -2134,7 +2647,11 @@ module.exports = async (m, sock) => {
                         { cmd: "tiktok2", desc: "Alternatif untuk mengunduh dari TikTok." },
                         { cmd: "play", desc: "Memutar lagu dari YouTube." },
                         { cmd: "ytmp3", desc: "Mengunduh audio dari YouTube." },
-                        { cmd: "ytmp4", desc: "Mengunduh video dari YouTube." }
+                        { cmd: "ytmp4", desc: "Mengunduh video dari YouTube." },
+                        { cmd: "ytsearch", desc: "Mencari dan download video/audio YouTube." },
+                        { cmd: "spotifysearch", desc: "Mencari dan download lagu Spotify." },
+                        { cmd: "ytdownload", desc: "Download otomatis audio+video YouTube." },
+                        { cmd: "spotdownload", desc: "Download otomatis lagu Spotify." }
                     ],
                     "Group": [
                         { cmd: "antilink", desc: "Mengaktifkan/menonaktifkan anti-link grup." },

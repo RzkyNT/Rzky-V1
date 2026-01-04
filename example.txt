@@ -1,7 +1,8 @@
+spotify search curl -X GET "https://www.sankavollerei.com/search/spotify?apikey=planaai&q=Su%20asu"
+spotify download "https://www.sankavollerei.com/download/spotify?apikey=planaai&url=https%3A%2F%2Fopen.spotify.com%2Ftrack%2F2JN3ugW1cEahbYw0I5mw5U"
+
 Yt Search curl -X GET "https://api.gimita.id/api/search/youtube?query=ceramah%20ustadz%20abdul%20somad"
-
 Yt Download Audio curl -X GET "https://api.gimita.id/api/downloader/ytmp3?url=https%3A%2F%2Fyoutu.be%2FvYbb0N5IYEM%3Fsi%3D3m72wukxW_LfT-8N"
-
 Yt Download Video curl -X GET "https://api.gimita.id/api/downloader/ytmp4?resolution=720&url=https%3A%2F%2Fyoutu.be%2FvYbb0N5IYEM%3Fsi%3D3m72wukxW_LfT-8N"
 
 Xnxx Search curl -X GET "https://api.gimita.id/api/search/xnxx?page=1&query=dokter%20perawat"
@@ -12,3 +13,5 @@ karna generate image lumayan lama, jadi tolong cek progressnya curl -X GET "http
 
 remove bg upload ke catbox lalu link di simpan dan digunakan curl -X GET "https://api.gimita.id/api/maker/removebg?image=%5Bobject%20File%5D&url=https%3A%2F%2Fi.pinimg.com%2F736x%2F39%2Fb4%2Fc5%2F39b4c5034208e94b40d0717fd635dce3.jpg"
 upscale image upload ke catbox lalu link di simpan dan digunakan curl -X GET "https://api.gimita.id/api/tools/upscale?url=https%3A%2F%2Fi.pinimg.com%2F736x%2F39%2Fb4%2Fc5%2F39b4c5034208e94b40d0717fd635dce3.jpg"
+
+https://www.sankavollerei.com/tools/vcc?apikey=planaai&bin=Visa
