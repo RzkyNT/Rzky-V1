@@ -4536,6 +4536,322 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
             }
                 break;
 
+            // kirim hidetag ke chat/grup lain yang dipilih (interaktif seperti jpm)
+            // kirim hidetag khusus ke GRUP: .httog <pesan>  atau .httog target|pesan
+            case "httog":
+            case "htog": {
+                if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
+                if (!text) return m.reply(`Contoh : ${cmd} Pesannya\nAtau ${cmd} 628123456789@g.us|Pesannya`);
+
+                // direct target|message
+                if (text.includes("|")) {
+                    try {
+                        const [targetRaw, messageText] = text.split("|").map(s => s.trim());
+                        if (!targetRaw || !messageText) return m.reply(`Contoh : ${cmd} 628123456789@g.us|Pesannya`);
+
+                        let target = targetRaw;
+                        if (!/@/.test(target)) {
+                            if (/^\d+$/.test(target)) target = `${target}@s.whatsapp.net`;
+                        }
+                        if (/https?:\/\//.test(target)) target = target.split("/").pop();
+
+                        // require group metadata
+                        const md = await sock.groupMetadata(target);
+                        if (!md || !md.participants) return m.reply("Target bukan grup atau metadata tidak ditemukan.");
+                        const mentions = md.participants.map(p => (p.id || p.jid));
+
+                        await sock.sendMessage(target, { text: messageText, mentions }, { quoted: null });
+                        return m.reply(`✅ Pesan hidetag berhasil dikirim ke grup ${target}`);
+                    } catch (err) {
+                        console.error("httog direct error:", err);
+                        return m.reply("Gagal mengirim hidetag ke grup. Pastikan ID grup benar dan bot berada di grup tersebut.");
+                    }
+                }
+
+                // show group selection
+                try {
+                    global.hidetagGroupMessage = text;
+                    const allGroups = await sock.groupFetchAllParticipating();
+                    const groups = Object.values(allGroups);
+                    if (!groups || groups.length < 1) return m.reply("Tidak ada grup chat.");
+
+                    let rows = [];
+                    for (let g of groups) {
+                        const name = g.subject || "Unknown";
+                        rows.push({ title: name, description: `ID - ${g.id}`, id: `.httog-response ${g.id}|${name}` });
+                    }
+
+                    await sock.sendMessage(m.chat, {
+                        buttons: [
+                            {
+                                buttonId: 'select_groups_ht',
+                                buttonText: { displayText: 'Pilih Grup untuk Hidetag' },
+                                type: 4,
+                                nativeFlowInfo: {
+                                    name: 'single_select',
+                                    paramsJson: JSON.stringify({ title: 'Pilih Grup', sections: [{ title: `© Powered By ${namaOwner}`, rows }] })
+                                }
+                            }
+                        ],
+                        headerType: 1,
+                        viewOnce: true,
+                        text: `Pilih grup untuk mengirim hidetag (Pesan disimpan sementara)`
+                    }, { quoted: m });
+
+                } catch (err) {
+                    console.error("httog select error:", err);
+                    return m.reply("Gagal menampilkan daftar grup. Coba lagi.");
+                }
+            }
+
+            case "httog-response": {
+                if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
+                if (!global.hidetagGroupMessage) return m.reply("Tidak ada pesan hidetag grup yang disimpan. Gunakan .httog <pesan> lalu pilih grup.");
+                if (!text) return;
+                try {
+                    const [targetId] = text.split("|").map(s => s.trim());
+                    if (!targetId) return m.reply("ID grup tidak valid.");
+                    const md = await sock.groupMetadata(targetId);
+                    if (!md || !md.participants) return m.reply("Gagal mendapatkan metadata grup.");
+                    const mentions = md.participants.map(p => (p.id || p.jid));
+                    await sock.sendMessage(targetId, { text: global.hidetagGroupMessage, mentions }, { quoted: null });
+                    delete global.hidetagGroupMessage;
+                    return m.reply(`✅ Pesan hidetag berhasil dikirim ke ${targetId}`);
+                } catch (err) {
+                    console.error("httog-response error:", err);
+                    return m.reply("Gagal mengirim hidetag ke grup. Coba lagi.");
+                }
+            }
+            // kirim hidetag khusus ke KONTAK: .httok <pesan>  atau .httok target|pesan
+            case "httok":
+            case "htok": {
+                if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
+                if (!text) return m.reply(`Contoh : ${cmd} Pesannya\nAtau ${cmd} 628123456789@s.whatsapp.net|Pesannya`);
+
+                // direct target|message
+                if (text.includes("|")) {
+                    try {
+                        const [targetRaw, messageText] = text.split("|").map(s => s.trim());
+                        if (!targetRaw || !messageText) return m.reply(`Contoh : ${cmd} 628123456789@s.whatsapp.net|Pesannya`);
+
+                        let target = targetRaw;
+                        if (!/@/.test(target)) {
+                            if (/^\d+$/.test(target)) target = `${target}@s.whatsapp.net`;
+                        }
+                        if (/https?:\/\//.test(target)) target = target.split("/").pop();
+
+                        // send as mention to single contact
+                        await sock.sendMessage(target, { text: messageText, mentions: [target] }, { quoted: null });
+                        return m.reply(`✅ Pesan hidetag berhasil dikirim ke kontak ${target}`);
+                    } catch (err) {
+                        console.error("httok direct error:", err);
+                        return m.reply("Gagal mengirim hidetag ke kontak. Pastikan ID/kontak benar dan bot memiliki akses.");
+                    }
+                }
+
+                // show contacts selection from data/contacts.json
+                try {
+                    global.hidetagContactMessage = text;
+                    const fs = require('fs');
+                    const contactsPath = './data/contacts.json';
+                    if (!fs.existsSync(contactsPath)) return m.reply('File contacts.json tidak ditemukan.');
+                    const raw = fs.readFileSync(contactsPath, 'utf8');
+                    const contacts = JSON.parse(raw) || [];
+                    if (!contacts || contacts.length < 1) return m.reply('Tidak ada kontak di contacts.json');
+
+                    let rows = [];
+                    for (let c of contacts) {
+                        const jid = c.jid || c.id || c.number || c.phone || c.contact || null;
+                        const name = c.name || c.pushname || c.notify || (jid ? jid.split('@')[0] : 'Unknown');
+                        if (!jid) continue;
+                        rows.push({ title: name, description: `Kontak - ${jid}`, id: `.httok-response ${jid}|${name}` });
+                    }
+
+                    await sock.sendMessage(m.chat, {
+                        buttons: [
+                            {
+                                buttonId: 'select_contacts_htok',
+                                buttonText: { displayText: 'Pilih Kontak untuk Hidetag' },
+                                type: 4,
+                                nativeFlowInfo: {
+                                    name: 'single_select',
+                                    paramsJson: JSON.stringify({ title: 'Pilih Kontak', sections: [{ title: `© Powered By ${namaOwner}`, rows }] })
+                                }
+                            }
+                        ],
+                        headerType: 1,
+                        viewOnce: true,
+                        text: `Pilih kontak untuk mengirim hidetag (Pesan disimpan sementara)`
+                    }, { quoted: m });
+
+                } catch (err) {
+                    console.error("httok select error:", err);
+                    return m.reply("Gagal menampilkan daftar kontak. Coba lagi.");
+                }
+            }
+
+            case "httok-response": {
+                if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
+                if (!global.hidetagContactMessage) return m.reply("Tidak ada pesan hidetag kontak yang disimpan. Gunakan .httok <pesan> lalu pilih kontak.");
+                if (!text) return;
+                try {
+                    const [targetJid] = text.split("|").map(s => s.trim());
+                    if (!targetJid) return m.reply("ID kontak tidak valid.");
+                    await sock.sendMessage(targetJid, { text: global.hidetagContactMessage, mentions: [targetJid] }, { quoted: null });
+                    delete global.hidetagContactMessage;
+                    return m.reply(`✅ Pesan hidetag berhasil dikirim ke ${targetJid}`);
+                } catch (err) {
+                    console.error("httok-response error:", err);
+                    return m.reply("Gagal mengirim hidetag ke kontak. Coba lagi.");
+                }
+            }
+
+            case "hidetagto":
+            case "htto": {
+                if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
+                if (!text) return m.reply(`Contoh : ${cmd} Pesannya\nAtau ${cmd} 628123456789@g.us|Pesannya`);
+
+                // Jika menggunakan format target|pesan -> langsung kirim (sama seperti sebelumnya)
+                if (text.includes("|")) {
+                    try {
+                        const [targetRaw, messageText] = text.split("|").map(s => s.trim());
+                        if (!targetRaw || !messageText) return m.reply(`Contoh : ${cmd} 628123456789@g.us|Pesannya`);
+
+                        let target = targetRaw;
+                        if (!/@/.test(target)) {
+                            if (/^\d+$/.test(target)) target = `${target}@s.whatsapp.net`;
+                        }
+                        if (/https?:\/\//.test(target)) target = target.split("/").pop();
+
+                        let mentions = [];
+                        try {
+                            const md = await sock.groupMetadata(target);
+                            if (md && md.participants) mentions = md.participants.map(p => (p.id || p.jid));
+                        } catch (e) {
+                            mentions = [target];
+                        }
+                        // await sock.sendMessage(mem, { text: teks }, { quoted: FakeChannel });                    
+                        await sock.sendMessage(target, { text: messageText, mentions }, { quoted: FakeChannel });
+                        return m.reply(`✅ Pesan hidetag berhasil dikirim ke ${target}`);
+                    } catch (err) {
+                        console.error("hidetagto error:", err);
+                        return m.reply("Gagal mengirim hidetag. Pastikan ID/group benar dan bot memiliki akses.");
+                    }
+                }
+
+                // Jika hanya berisi pesan -> tampilkan daftar grup untuk dipilih (interactive)
+                try {
+                    global.hidetagMessage = text; // simpan sementara
+
+                    const allGroups = await sock.groupFetchAllParticipating();
+                    const groups = Object.values(allGroups);
+                    if (!groups || groups.length < 1) return m.reply("Tidak ada grup chat.");
+
+                    let rowsGroups = [];
+                    for (let g of groups) {
+                        const name = g.subject || "Unknown";
+                        rowsGroups.push({
+                            title: name,
+                            description: `ID - ${g.id}`,
+                            id: `.hidetagto-response ${g.id}|${name}`
+                        });
+                    }
+
+                    // Build contact rows from data/contacts.json if exists
+                    const fs = require('fs');
+                    let rowsContacts = [];
+                    try {
+                        const contactsPath = './data/contacts.json';
+                        if (fs.existsSync(contactsPath)) {
+                            const raw = fs.readFileSync(contactsPath, 'utf8');
+                            const contacts = JSON.parse(raw) || [];
+                            for (let c of contacts) {
+                                // support multiple possible shapes
+                                const jid = c.jid || c.id || c.number || c.phone || c.contact || null;
+                                const name = c.name || c.pushname || c.notify || (jid ? jid.split('@')[0] : 'Unknown');
+                                if (!jid) continue;
+                                rowsContacts.push({
+                                    title: name,
+                                    description: `Kontak - ${jid}`,
+                                    id: `.hidetagto-response ${jid}|${name}`
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error reading contacts.json for hidetagto:', e);
+                    }
+
+                    const buttons = [];
+                    // add groups selection button
+                    buttons.push({
+                        buttonId: 'select_groups',
+                        buttonText: { displayText: 'Pilih Grup' },
+                        type: 4,
+                        nativeFlowInfo: {
+                            name: 'single_select',
+                            paramsJson: JSON.stringify({
+                                title: 'Pilih Grup',
+                                sections: [{ title: `© Powered By ${namaOwner}`, rows: rowsGroups }]
+                            })
+                        }
+                    });
+
+                    // add contacts selection button only if contacts exist
+                    if (rowsContacts.length > 0) {
+                        buttons.push({
+                            buttonId: 'select_contacts',
+                            buttonText: { displayText: 'Pilih Kontak' },
+                            type: 4,
+                            nativeFlowInfo: {
+                                name: 'single_select',
+                                paramsJson: JSON.stringify({
+                                    title: 'Pilih Kontak',
+                                    sections: [{ title: `© Powered By ${namaOwner}`, rows: rowsContacts }]
+                                })
+                            }
+                        });
+                    }
+
+                    await sock.sendMessage(m.chat, {
+                        buttons: buttons,
+                        headerType: 1,
+                        viewOnce: true,
+                        text: `Pilih grup atau kontak untuk mengirim hidetag (Pesan disimpan sementara)`
+                    }, { quoted: m });
+
+                } catch (err) {
+                    console.error("hidetagto-select error:", err);
+                    return m.reply("Gagal menampilkan daftar grup. Coba lagi.");
+                }
+            }
+
+            case "hidetagto-response": {
+                if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
+                if (!global.hidetagMessage) return m.reply("Tidak ada pesan hidetag yang disimpan. Gunakan .hidetagto <pesan> lalu pilih grup.");
+                if (!text) return;
+
+                try {
+                    const [targetId] = text.split("|").map(s => s.trim());
+                    if (!targetId) return m.reply("ID grup tidak valid.");
+
+                    let mentions = [];
+                    try {
+                        const md = await sock.groupMetadata(targetId);
+                        if (md && md.participants) mentions = md.participants.map(p => (p.id || p.jid));
+                    } catch (e) {
+                        // jika gagal ambil metadata, coba kirim ke targetId saja
+                        mentions = [targetId];
+                    }
+
+                    await sock.sendMessage(targetId, { text: global.hidetagMessage, mentions }, { quoted: FakeChannel });
+                    delete global.hidetagMessage;
+                    return m.reply(`✅ Pesan hidetag berhasil dikirim ke ${targetId}`);
+                } catch (err) {
+                    console.error("hidetagto-response error:", err);
+                    return m.reply("Gagal mengirim hidetag ke target. Coba lagi.");
+                }
+            }
+
             case "welcome": {
                 if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
                 if (!text) return m.reply(`*Contoh :* ${cmd} on/off`);
