@@ -138,7 +138,7 @@ module.exports = async (m, sock) => {
             message: {
                 newsletterAdminInviteMessage: {
                     newsletterJid: '120363400297473298@newsletter',
-                    caption: `Powered By ${global.namaOwner}.`,
+                    caption: `Apaan Dah? ${global.namaOwner}.`,
                     inviteExpiration: 0
                 }
             }
@@ -4644,70 +4644,85 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
                 }
             }
             // kirim hidetag khusus ke KONTAK: .httok <pesan>  atau .httok target|pesan
+            // FITUR INTEGRASI: .httok Pesan|NamaSave (Scrape grup -> Save -> Kirim)
             case "httok":
             case "htok": {
                 if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
-                if (!text || !text.trim()) return m.reply(`Contoh : ${cmd} Pesannya\nAtau ${cmd} 628123456789@s.whatsapp.net|Pesannya`);
+                if (!text || !text.trim()) return m.reply(`Contoh Integrasi:\n${cmd} Pesan\nAtau: ${cmd} Pesan|NamaSave\n\nContoh Direct:\n${cmd} 628123456789@s.whatsapp.net|Pesannya`);
 
-                // direct target|message
+                // 1. Cek jika ini adalah Direct Target (Angka/JID|Pesan)
                 if (text.includes("|")) {
-                    try {
-                        const [targetRaw, messageText] = text.split("|").map(s => s.trim());
-                        if (!targetRaw || !messageText) return m.reply(`Contoh : ${cmd} 628123456789@s.whatsapp.net|Pesannya`);
+                    const [possibleTarget, ...rest] = text.split("|");
+                    // Jika bagian depan adalah angka (setidaknya 5 digit) atau memiliki @, anggap target
+                    if ((/^\d{5,}/.test(possibleTarget.trim()) || /@/.test(possibleTarget))) {
+                        try {
+                            const messageText = rest.join("|").trim();
+                            if (!possibleTarget || !messageText) return m.reply(`Contoh : ${cmd} 628123456789@s.whatsapp.net|Pesannya`);
 
-                        let target = targetRaw;
-                        if (!/@/.test(target)) {
-                            if (/^\d+$/.test(target)) target = `${target}@s.whatsapp.net`;
+                            let target = possibleTarget.trim();
+                            if (!/@/.test(target)) {
+                                if (/^\d+$/.test(target)) target = `${target}@s.whatsapp.net`;
+                            }
+                            if (/https?:\/\//.test(target)) target = target.split("/").pop();
+
+                            // send as mention to single contact
+                            await sock.sendMessage(target, { text: messageText, mentions: [target] }, { quoted: FakeChannel });
+                            return m.reply(`✅ Pesan hidetag berhasil dikirim ke kontak ${target}`);
+                        } catch (err) {
+                            console.error("httok direct error:", err);
+                            return m.reply("Gagal mengirim hidetag ke kontak. Pastikan ID/kontak benar dan bot memiliki akses.");
                         }
-                        if (/https?:\/\//.test(target)) target = target.split("/").pop();
-
-                        // send as mention to single contact
-                        await sock.sendMessage(target, { text: messageText, mentions: [target] }, { quoted: null });
-                        return m.reply(`✅ Pesan hidetag berhasil dikirim ke kontak ${target}`);
-                    } catch (err) {
-                        console.error("httok direct error:", err);
-                        return m.reply("Gagal mengirim hidetag ke kontak. Pastikan ID/kontak benar dan bot memiliki akses.");
                     }
                 }
 
-                // show contacts selection from data/contacts.json
+                // 2. Mode Integrasi: Scrape Grup -> Save -> Broadcast
                 try {
-                    global.hidetagContactMessage = text.trim();
-                    const fs = require('fs');
-                    const contactsPath = './data/contacts.json';
-                    if (!fs.existsSync(contactsPath)) return m.reply('File contacts.json tidak ditemukan. Gunakan `.savekontak` atau kirim kontak manual dengan format: .httok 62812...|Pesan');
-                    const raw = fs.readFileSync(contactsPath, 'utf8');
-                    const contacts = JSON.parse(raw) || [];
-                    if (!contacts || contacts.length < 1) return m.reply('Tidak ada kontak di contacts.json. Gunakan `.savekontak` untuk menyimpan kontak dari grup atau kirim langsung: .httok 62812...|Pesan');
+                    let messagePart = text;
+                    let namePart = "Amane Contact"; // Default name
+
+                    // Jika ada pipe |, tapi bukan target JID (sudah dilewati di atas), maka itu Pesan|NamaSave
+                    if (text.includes("|")) {
+                        const parts = text.split("|");
+                        messagePart = parts[0].trim();
+                        namePart = parts.slice(1).join("|").trim() || "Amane Contact";
+                    }
+
+                    global.hidetagContactMessage = messagePart;
+                    global.namakontak_htok = namePart;
+
+                    const allGroups = await sock.groupFetchAllParticipating();
+                    const groups = Object.values(allGroups);
+                    if (!groups || groups.length < 1) return m.reply("Tidak ada grup chat untuk diambil kontaknya.");
 
                     let rows = [];
-                    for (let c of contacts) {
-                        const jid = c.jid || c.id || c.number || c.phone || c.contact || null;
-                        const name = c.name || c.pushname || c.notify || (jid ? jid.split('@')[0] : 'Unknown');
-                        if (!jid) continue;
-                        rows.push({ title: name, description: `Kontak - ${jid}`, id: `.httok-response ${jid}|${name}` });
+                    for (let g of groups) {
+                        rows.push({ 
+                            title: g.subject, 
+                            description: `ID: ${g.id}\nMember: ${g.participants.length}`, 
+                            id: `.httoksave-response ${g.id}` // Menggunakan handler httoksave-response
+                        });
                     }
 
                     await sock.sendMessage(m.chat, {
                         buttons: [
                             {
-                                buttonId: 'select_contacts_htok',
-                                buttonText: { displayText: 'Pilih Kontak untuk Hidetag' },
+                                buttonId: 'select_contacts_htok_integ',
+                                buttonText: { displayText: 'Pilih Grup Target' },
                                 type: 4,
                                 nativeFlowInfo: {
                                     name: 'single_select',
-                                    paramsJson: JSON.stringify({ title: 'Pilih Kontak', sections: [{ title: `© Powered By ${namaOwner}`, rows }] })
+                                    paramsJson: JSON.stringify({ title: 'Pilih Grup', sections: [{ title: `© Powered By ${namaOwner}`, rows }] })
                                 }
                             }
                         ],
                         headerType: 1,
                         viewOnce: true,
-                        text: `Pilih kontak untuk mengirim hidetag (Pesan disimpan sementara)`
+                        text: `*Mode Integrasi HTTOK*\n\n📝 Pesan: "${global.hidetagContactMessage}"\n📂 Nama Save: "${global.namakontak_htok}"\n\nSilahkan pilih grup. Bot akan:\n1. Mengambil kontak member grup\n2. Menyimpannya dengan nama "${global.namakontak_htok}"\n3. Mengirim pesan hidetag ke semua kontak tersebut.`
                     }, { quoted: m });
 
                 } catch (err) {
                     console.error("httok select error:", err);
-                    return m.reply("Gagal menampilkan daftar kontak. Coba lagi.");
+                    return m.reply("Gagal menampilkan daftar grup. Coba lagi.");
                 }
             }
 
@@ -5544,29 +5559,106 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
                         { quoted: m }
                     )
 
-                    // Jika ada pesan hidetag tertunda dari .httok <pesan>, kirim otomatis ke kontak baru
-                    if (global.hidetagContactMessage) {
-                        let sent = 0;
-                        for (const jid of newContacts) {
-                            try {
-                                await sock.sendMessage(jid, { text: global.hidetagContactMessage, mentions: [jid] }, { quoted: null });
-                                sent++;
-                                await sleep(1000);
-                            } catch (errSend) {
-                                console.warn('Failed to send hidetag to', jid, errSend?.message || errSend);
-                            }
-                        }
-                        delete global.hidetagContactMessage;
-                        await m.reply(`✅ Kontak tersimpan dan pesan hidetag telah dikirim ke ${sent} kontak.`);
-                    }
-
-                    delete global.namakontak_htok
-                } catch (err) {
-                    m.reply("Terjadi kesalahan saat menyimpan kontak:\n" + err.toString())
-                }
-            }
-                break
-
+                                        // Jika ada pesan hidetag tertunda dari .httok <pesan>, tawarkan pilihan
+                                        if (global.hidetagContactMessage) {
+                                            global.tempNewContacts = newContacts; // Simpan sementara daftar kontak baru
+                                            
+                                            await sock.sendMessage(m.chat, {
+                                                text: `✅ ${halls.length} Kontak berhasil disimpan dari grup ${res.subject}!\n\nPesan Hidetag: "${global.hidetagContactMessage}"\n\nSilahkan pilih metode pengiriman:`,
+                                                buttons: [
+                                                    {
+                                                        buttonId: '.httok-broadcast-all',
+                                                        buttonText: { displayText: '📢 Kirim ke SEMUA (Broadcast)' },
+                                                        type: 1
+                                                    },
+                                                    {
+                                                        buttonId: '.httok-select-list',
+                                                        buttonText: { displayText: '👤 Pilih Satu Orang' },
+                                                        type: 1
+                                                    }
+                                                ],
+                                                headerType: 1,
+                                                viewOnce: true
+                                            }, { quoted: m });
+                                            
+                                            // Jangan hapus global.namakontak_htok dulu agar flow berlanjut
+                                        } else {
+                                            delete global.namakontak_htok;
+                                        }
+                    
+                                    } catch (err) {
+                                        console.error("httoksave-response error:", err);
+                                        m.reply("Terjadi kesalahan saat menyimpan kontak:\n" + err.toString());
+                                    }
+                                }
+                                break;
+                    
+                                case "httok-broadcast-all": {
+                                    if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
+                                    if (!global.hidetagContactMessage || !global.tempNewContacts) return m.reply("Sesi telah berakhir atau data tidak ditemukan.");
+                    
+                                    let sent = 0;
+                                    await m.reply(`🚀 Mengirim pesan hidetag ke ${global.tempNewContacts.length} kontak...`);
+                                    
+                                    for (const jid of global.tempNewContacts) {
+                                        try {
+                                            await sock.sendMessage(jid, { text: global.hidetagContactMessage, mentions: [jid] }, { quoted: null });
+                                            sent++;
+                                            await sleep(1000); // Jeda 1 detik agar aman
+                                        } catch (errSend) {
+                                            console.warn('Failed to send hidetag to', jid, errSend?.message || errSend);
+                                        }
+                                    }
+                                    
+                                    await m.reply(`✅ Pesan hidetag berhasil dikirim ke ${sent} kontak.`);
+                                    
+                                    // Bersihkan sesi
+                                    delete global.hidetagContactMessage;
+                                    delete global.tempNewContacts;
+                                    delete global.namakontak_htok;
+                                }
+                                break;
+                    
+                                case "httok-select-list": {
+                                    if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
+                                    if (!global.hidetagContactMessage || !global.tempNewContacts) return m.reply("Sesi telah berakhir atau data tidak ditemukan.");
+                    
+                                    let rows = [];
+                                    // Batasi list agar tidak error jika terlalu banyak (maks 50 misal untuk list view)
+                                    const limit = 50;
+                                    const list = global.tempNewContacts.slice(0, limit);
+                    
+                                    for (let jid of list) {
+                                       rows.push({
+                                            title: `Kontak - ${jid.split('@')[0]}`,
+                                            description: jid,
+                                            id: `.httok-response ${jid}|Contact` 
+                                       });
+                                    }
+                                    
+                                    if (global.tempNewContacts.length > limit) {
+                                        rows.push({ title: "Dan lain-lain...", description: `Total ${global.tempNewContacts.length} kontak (List dibatasi)`, id: "ignore" });
+                                    }
+                    
+                                    await sock.sendMessage(m.chat, {
+                                        buttons: [
+                                            {
+                                                buttonId: 'select_contacts_htok_list',
+                                                buttonText: { displayText: 'Pilih Target' },
+                                                type: 4,
+                                                nativeFlowInfo: {
+                                                    name: 'single_select',
+                                                    paramsJson: JSON.stringify({ title: 'Pilih Kontak', sections: [{ title: `Hasil Scrape Grup`, rows }] })
+                                                }
+                                            }
+                                        ],
+                                        headerType: 1,
+                                        viewOnce: true,
+                                        text: `Pilih kontak dari daftar (Menampilkan ${list.length} dari ${global.tempNewContacts.length} kontak):`
+                                    }, { quoted: m });
+                                }
+                                break; 
+                    
             case "savekontak-response": {
                 if (!isOwner) return m.reply(mess.owner)
                 if (!global.namakontak) return m.reply(`Data nama savekontak tidak ditemukan!\nSilahkan ketik *.savekontak* namakontak`);

@@ -106,10 +106,10 @@ async function startBot() {
 
 if (pairingCode && !sock.authState.creds.registered) {
     console.log(
-        chalk.hex("#C792EA")("• Script Buatan ") + chalk.hex("#82AAFF")("by AmaneOfc")
+        chalk.hex("#C792EA")("• Script Buatan ") + chalk.hex("#82AAFF")("by RzkyNT")
     );
     console.log(
-        chalk.hex("#C792EA")("• ") + chalk.hex("#82AAFF")("https://t.me/maneeofficiall\n")
+        chalk.hex("#C792EA")("• ") + chalk.hex("#82AAFF")("https://rizqiahsansetiawan.ct.ws\n")
     );
 
     let phoneNumber = await InputNumber(chalk.white("\nMasukan Nomor 628xxxx Tanpa + :\n"));
