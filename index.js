@@ -83,7 +83,7 @@ async function startBot() {
     const pairingCode = true;
 
     const sock = makeWASocket({
-        browser: ["Ubuntu", "Chrome", "20.0.00"],
+        browser: ["Ubuntu", "Chrome", "20.0.00"], 
         generateHighQualityLinkPreview: true,
         printQRInTerminal: !pairingCode,
         auth: state,

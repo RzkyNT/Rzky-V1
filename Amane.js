@@ -1620,7 +1620,7 @@ module.exports = async (m, sock) => {
                         await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
                         await sock.sendMessage(m.chat, {
                             video: { url: videoData.data.download_url },
-                            caption: `🎬 *${videoData.data.title}*\n📺 Channel: ${videoData.data.channel}\n⏱️ Duration: ${videoData.data.duration}`,
+                            caption: `🎬 *${videoData.data.title}*\n📺 Channel: ${videoData.data.author}\n⏱️ Duration: ${videoData.data.duration}`,
                             contextInfo: {
                                 externalAdReply: {
                                     title: videoData.data.title,
@@ -3401,103 +3401,115 @@ break;
             }
                 break;
 
-            case "mmenu": {
+            case "mmenu": 
+            case "menu":
+            case "allmenu":
+            case "allmenuv2":
+            case "menuios":
+            case "allmenuvid": {
                 const allCommands = {
-                    "Main": [
-                        { cmd: "ai", desc: "Berinteraksi dengan kecerdasan buatan (AI)." },
-                        { cmd: "pinterest", desc: "Mencari gambar di Pinterest." },
-                        { cmd: "ssweb", desc: "Mengambil tangkapan layar dari sebuah website." },
-                        { cmd: "emojimix", desc: "Mencampur dua emoji menjadi satu." },
-                        { cmd: "tourl", desc: "Mengubah file media menjadi URL." },
-                        { cmd: "tourl2", desc: "Alternatif untuk mengubah file media menjadi URL." },
-                        { cmd: "sticker", desc: "Membuat stiker dari gambar atau video." },
-                        { cmd: "paustad", desc: "Membuat gambar dengan teks dari 'Pak Ustad'." },
-                        { cmd: "iqc", desc: "Membuat gambar kutipan iPhone." },
-                        { cmd: "hd", desc: "Meningkatkan kualitas gambar menjadi HD." },
-                        { cmd: "hdvid", desc: "Meningkatkan kualitas video menjadi HD." },
-                        { cmd: "removebg", desc: "Menghapus background gambar." },
-                        { cmd: "upscale", desc: "Meng-upscale gambar untuk kualitas lebih tinggi." },
-                        { cmd: "deepnude", desc: "Memproses gambar dengan AI (18+)." },
-                        { cmd: "checkdeepnude", desc: "Mengecek status proses deepnude." },
-                        { cmd: "vcc", desc: "Generate Virtual Credit Card untuk testing." },
-                        { cmd: "ping", desc: "Mengecek kecepatan dan status bot." }
+                    "Depot Air (CRM)": [
+                        { cmd: "daftar", desc: "Daftar sebagai pelanggan depot air" },
+                        { cmd: "order", desc: "Pesan galon air" },
+                        { cmd: "produk", desc: "Lihat daftar produk dan harga" },
+                        { cmd: "statusorder", desc: "Cek status pesanan" },
+                        { cmd: "batalorder", desc: "Batalkan pesanan" },
+                        { cmd: "listorder", desc: "Lihat semua pesanan (Admin)" },
+                        { cmd: "antar", desc: "Proses pengantaran (Admin)" },
+                        { cmd: "selesai", desc: "Selesaikan pesanan (Admin)" },
+                        { cmd: "listcust", desc: "Lihat daftar pelanggan (Admin)" }
+                    ],
+                    "Main Menu": [
+                        { cmd: "ai", desc: "Berinteraksi dengan kecerdasan buatan (AI)" },
+                        { cmd: "pinterest", desc: "Mencari gambar di Pinterest" },
+                        { cmd: "ssweb", desc: "Screenshot website" },
+                        { cmd: "emojimix", desc: "Mencampur dua emoji menjadi satu" },
+                        { cmd: "tourl", desc: "Mengubah file media menjadi URL" },
+                        { cmd: "tourl2", desc: "Alternatif untuk mengubah file media menjadi URL" },
+                        { cmd: "sticker", desc: "Membuat stiker dari gambar atau video" },
+                        { cmd: "paustad", desc: "Membuat gambar dengan teks dari 'Pak Ustad'" },
+                        { cmd: "iqc", desc: "Membuat gambar kutipan iPhone" },
+                        { cmd: "hd", desc: "Meningkatkan kualitas gambar menjadi HD" },
+                        { cmd: "hdvid", desc: "Meningkatkan kualitas video menjadi HD" },
+                        { cmd: "brat", desc: "Membuat gambar dengan style brat" },
+                        { cmd: "bratvid", desc: "Membuat video dengan style brat" },
+                        { cmd: "ping", desc: "Mengecek kecepatan dan status bot" }
                     ],
                     "Downloader": [
-                        { cmd: "mediafire", desc: "Mengunduh file dari Mediafire." },
-                        { cmd: "tiktok", desc: "Mengunduh video atau slide dari TikTok." },
-                        { cmd: "tiktok2", desc: "Alternatif untuk mengunduh dari TikTok." },
-                        { cmd: "play", desc: "Memutar lagu dari YouTube." },
-                        { cmd: "ytmp3", desc: "Mengunduh audio dari YouTube." },
-                        { cmd: "ytmp4", desc: "Mengunduh video dari YouTube." },
-                        { cmd: "ytsearch", desc: "Mencari dan download video/audio YouTube." },
-                        { cmd: "spotifysearch", desc: "Mencari dan download lagu Spotify." },
-                        { cmd: "tiktokvideosearch", desc: "Mencari dan download video TikTok." },
-                        { cmd: "ytdownload", desc: "Download otomatis audio+video YouTube." },
-                        { cmd: "spotdownload", desc: "Download otomatis lagu Spotify." },
-                        { cmd: "tiktokvideodownload", desc: "Download otomatis video TikTok." },
+                        { cmd: "mediafire", desc: "Mengunduh file dari Mediafire" },
+                        { cmd: "tiktok", desc: "Mengunduh video atau slide dari TikTok" },
+                        { cmd: "tiktok2", desc: "Alternatif untuk mengunduh dari TikTok" },
+                        { cmd: "play", desc: "Memutar lagu dari YouTube" },
+                        { cmd: "ytmp3", desc: "Mengunduh audio dari YouTube" },
+                        { cmd: "ytmp4", desc: "Mengunduh video dari YouTube" }
                     ],
-                    "Group": [
-                        { cmd: "antilink", desc: "Mengaktifkan/menonaktifkan anti-link grup." },
-                        { cmd: "antilink2", desc: "Alternatif untuk anti-link grup." },
-                        { cmd: "welcome", desc: "Mengaktifkan/menonaktifkan pesan selamat datang." },
-                        { cmd: "statusgrup", desc: "Menampilkan status pengaturan grup." },
-                        { cmd: "hidetag", desc: "Mention semua anggota grup secara tersembunyi." },
-                        { cmd: "kick", desc: "Mengeluarkan anggota dari grup." },
-                        { cmd: "open", desc: "Membuka grup." },
-                        { cmd: "close", desc: "Menutup grup." },
-                        { cmd: "swtaggc", desc: "Mention semua anggota grup di status." }
+                    "Group Management": [
+                        { cmd: "antilink", desc: "Mengaktifkan/menonaktifkan anti-link grup" },
+                        { cmd: "antilink2", desc: "Alternatif untuk anti-link grup" },
+                        { cmd: "welcome", desc: "Mengaktifkan/menonaktifkan pesan selamat datang" },
+                        { cmd: "statusgrup", desc: "Menampilkan status pengaturan grup" },
+                        { cmd: "hidetag", desc: "Mention semua anggota grup secara tersembunyi" },
+                        { cmd: "kick", desc: "Mengeluarkan anggota dari grup" },
+                        { cmd: "open", desc: "Membuka grup" },
+                        { cmd: "close", desc: "Menutup grup" },
+                        { cmd: "swtaggc", desc: "Mention semua anggota grup di status" }
                     ],
-                    "Store": [
-                        { cmd: "pushkontak", desc: "Mengirim pesan ke semua anggota grup." },
-                        { cmd: "pushkontak2", desc: "Mengirim pesan ke semua anggota grup dan menyimpan kontak." },
-                        { cmd: "savekontak", desc: "Menyimpan semua kontak dari grup." },
-                        { cmd: "stoppush", desc: "Menghentikan proses push kontak." },
-                        { cmd: "setjeda", desc: "Mengatur jeda waktu untuk push kontak dan JPM." },
-                        { cmd: "savenomor", desc: "Menyimpan nomor telepon." },
-                        { cmd: "xnxxsearch", desc: "Mencari dan download video XNXX (18+)." },
-                        { cmd: "xnxxdownload", desc: "Download otomatis video XNXX (18+)." },
-                        { cmd: "jpm", desc: "Mengirim pesan ke semua grup." },
-                        { cmd: "jpmht", desc: "Mengirim pesan hidetag ke semua grup." },
-                        { cmd: "jpmch", desc: "Mengirim pesan ke semua channel." },
-                        { cmd: "stopjpm", desc: "Menghentikan proses JPM." },
-                        { cmd: "payment", desc: "Menampilkan informasi pembayaran." },
-                        { cmd: "proses", desc: "Menandai pesanan sebagai 'diproses'." },
-                        { cmd: "done", desc: "Menandai pesanan sebagai 'selesai'." }
+                    "Store & Marketing": [
+                        { cmd: "pushkontak", desc: "Mengirim pesan ke semua anggota grup" },
+                        { cmd: "pushkontak2", desc: "Mengirim pesan ke semua anggota grup dan menyimpan kontak" },
+                        { cmd: "savekontak", desc: "Menyimpan semua kontak dari grup" },
+                        { cmd: "stoppush", desc: "Menghentikan proses push kontak" },
+                        { cmd: "setjeda", desc: "Mengatur jeda waktu untuk push kontak dan JPM" },
+                        { cmd: "savenomor", desc: "Menyimpan nomor telepon" },
+                        { cmd: "jpm", desc: "Mengirim pesan ke semua grup" },
+                        { cmd: "jpmht", desc: "Mengirim pesan hidetag ke semua grup" },
+                        { cmd: "jpmch", desc: "Mengirim pesan ke semua channel" },
+                        { cmd: "stopjpm", desc: "Menghentikan proses JPM" },
+                        { cmd: "payment", desc: "Menampilkan informasi pembayaran" },
+                        { cmd: "proses", desc: "Menandai pesanan sebagai 'diproses'" },
+                        { cmd: "done", desc: "Menandai pesanan sebagai 'selesai'" }
                     ],
-                    "Panel": [
-                        { cmd: "addgrupreseller", desc: "Menambahkan grup sebagai grup reseller." },
-                        { cmd: "delgrupreseller", desc: "Menghapus grup dari grup reseller." },
-                        { cmd: "listgrupreseller", desc: "Menampilkan daftar grup reseller." },
-                        { cmd: "addseller", desc: "Menambahkan reseller." },
-                        { cmd: "delseller", desc: "Menghapus reseller." },
-                        { cmd: "listseller", desc: "Menampilkan daftar reseller." },
-                        { cmd: "1gb-unlimited", desc: "Membuat server panel dengan spek tertentu." },
-                        { cmd: "delpanel", desc: "Menghapus server panel." },
-                        { cmd: "listpanel", desc: "Menampilkan daftar server panel." },
-                        { cmd: "cadmin", desc: "Membuat akun admin panel." },
-                        { cmd: "deladmin", desc: "Menghapus akun admin panel." },
-                        { cmd: "listadmin", desc: "Menampilkan daftar admin panel." },
-                        { cmd: "subdomain", desc: "Membuat subdomain." },
-                        { cmd: "installpanel", desc: "Menginstall panel Pterodactyl." },
-                        { cmd: "startwings", desc: "Menjalankan wings Pterodactyl." },
-                        { cmd: "setptla", desc: "Mengatur API key PTLA." },
-                        { cmd: "setptlc", desc: "Mengatur API key PTLC." },
-                        { cmd: "setdomain", desc: "Mengatur domain panel." },
-                        { cmd: "upapikey", desc: "Memperbarui API key." }
+                    "Automation": [
+                        { cmd: "autojpmch", desc: "Auto JPM Channel on/off" },
+                        { cmd: "setjpmch", desc: "Set pesan auto JPM channel" },
+                        { cmd: "delsetjpmch", desc: "Hapus pesan auto JPM channel" },
+                        { cmd: "autojpm", desc: "Auto JPM on/off" },
+                        { cmd: "setjpm", desc: "Set pesan auto JPM" },
+                        { cmd: "delsetjpm", desc: "Hapus pesan auto JPM" },
+                        { cmd: "autojoingrup", desc: "Auto join grup on/off" }
                     ],
-                    "Owner": [
-                        { cmd: "delproduk", desc: "Menghapus produk." },
-                        { cmd: "addproduk", desc: "Menambahkan produk." },
-                        { cmd: "delrespon", desc: "Menghapus auto-response." },
-                        { cmd: "addrespon", desc: "Menambahkan auto-response." },
-                        { cmd: "bljpm", desc: "Blacklist grup dari JPM." },
-                        { cmd: "delbljpm", desc: "Menghapus grup dari blacklist JPM." },
-                        { cmd: "addowner", desc: "Menambahkan owner." },
-                        { cmd: "listowner", desc: "Menampilkan daftar owner." },
-                        { cmd: "delowner", desc: "Menghapus owner." },
-                        { cmd: "resetdb", desc: "Mereset database." },
-                        { cmd: "upswgc", desc: "Update status grup." },
-                        { cmd: "public", desc: "Mengubah mode bot menjadi public." },
+                    "Panel Management": [
+                        { cmd: "addgrupreseller", desc: "Menambahkan grup sebagai grup reseller" },
+                        { cmd: "delgrupreseller", desc: "Menghapus grup dari grup reseller" },
+                        { cmd: "listgrupreseller", desc: "Menampilkan daftar grup reseller" },
+                        { cmd: "addseller", desc: "Menambahkan reseller" },
+                        { cmd: "delseller", desc: "Menghapus reseller" },
+                        { cmd: "listseller", desc: "Menampilkan daftar reseller" },
+                        { cmd: "1gb-unlimited", desc: "Membuat server panel dengan spek tertentu" },
+                        { cmd: "delpanel", desc: "Menghapus server panel" },
+                        { cmd: "listpanel", desc: "Menampilkan daftar server panel" },
+                        { cmd: "cadmin", desc: "Membuat akun admin panel" },
+                        { cmd: "deladmin", desc: "Menghapus akun admin panel" },
+                        { cmd: "listadmin", desc: "Menampilkan daftar admin panel" },
+                        { cmd: "subdomain", desc: "Membuat subdomain" },
+                        { cmd: "installpanel", desc: "Menginstall panel Pterodactyl" },
+                        { cmd: "startwings", desc: "Menjalankan wings Pterodactyl" },
+                        { cmd: "setptla", desc: "Mengatur API key PTLA" },
+                        { cmd: "setptlc", desc: "Mengatur API key PTLC" },
+                        { cmd: "setdomain", desc: "Mengatur domain panel" },
+                        { cmd: "upapikey", desc: "Memperbarui API key" }
+                    ],
+                    "Owner Only": [
+                        { cmd: "delrespon", desc: "Menghapus auto-response" },
+                        { cmd: "addrespon", desc: "Menambahkan auto-response" },
+                        { cmd: "bljpm", desc: "Blacklist grup dari JPM" },
+                        { cmd: "delbljpm", desc: "Menghapus grup dari blacklist JPM" },
+                        { cmd: "addowner", desc: "Menambahkan owner" },
+                        { cmd: "listowner", desc: "Menampilkan daftar owner" },
+                        { cmd: "delowner", desc: "Menghapus owner" },
+                        { cmd: "resetdb", desc: "Mereset database" },
+                        { cmd: "upswgc", desc: "Update status grup" },
+                        { cmd: "public", desc: "Mengubah mode bot menjadi public" },
                         { cmd: "self", desc: "Mengubah mode bot menjadi self." },
                         { cmd: "setjeda", desc: "Mengatur jeda." },
                         { cmd: "backupsc", desc: "Backup script." },
@@ -3570,16 +3582,32 @@ break;
                             thumbnail: global.thumbnail2,
                             nativeFlowMessage: {
                                 messageParamsJson: JSON.stringify({
+                                    limited_time_offer: {
+                                        text: "RzkyNT Store V1.0.0",
+                                        url: global.linkChannel,
+                                        copy_code: "Expired 30/12/2025",
+                                        expiration_time: Date.now() * 999
+                                    },
                                     bottom_sheet: {
+                                        in_thread_buttons_limit: 2,
+                                        divider_indices: [1, 2, 3, 4, 5, 999],
                                         list_title: `Menu ${category}`,
-                                        button_title: "Select Menu♻️"
+                                        button_title: "Select Command"
                                     }
                                 }),
                                 buttons: [
+                                       {
+                                    name: "single_select",
+                                    buttonParamsJson: JSON.stringify({ has_multiple_buttons: true })
+                                },
+                                {
+                                    name: "call_permission_request",
+                                    buttonParamsJson: JSON.stringify({ has_multiple_buttons: true })
+                                },
                                     {
                                         name: "single_select",
                                         buttonParamsJson: JSON.stringify({
-                                            title: "Menu⤵️",
+                                            title: "Commands⤵️",
                                             sections: commandSections,
                                             has_multiple_buttons: true
                                         })
@@ -3587,14 +3615,14 @@ break;
                                     {
                                         name: "quick_reply",
                                         buttonParamsJson: JSON.stringify({
-                                            display_text: "⬅️ Back",
+                                            display_text: "⬅️ Back to Main Menu",
                                             id: `.mmenu`
                                         })
                                     }
                                 ]
                             }
                         }
-                    }, { quoted: m })
+                    }, { quoted: FakeChannel })
                 }
 
                 // =========================
@@ -3609,74 +3637,55 @@ break;
                     }))
                 }]
 
-                await sock.sendMessage(m.chat, {
-                    interactiveMessage: {
-                        title: "📋 MENU UTAMA",
-                        footer: global.Dev,
-                        thumbnail: global.thumbnail2,
-                        nativeFlowMessage: {
-                            messageParamsJson: JSON.stringify({
-                                bottom_sheet: {
-                                    list_title: "RzkyNT Menu",
-                                    button_title: "Select Menu♻️"
-                                }
-                            }),
-                            buttons: [
-                                {
-                                    name: "single_select",
-                                    buttonParamsJson: JSON.stringify({
-                                        title: "Menu⤵️",
-                                        sections: categorySections,
-                                        has_multiple_buttons: true
-                                    })
-                                }
-                            ]
-                        }
-                    }
-                }, { quoted: m })
-            }
-                break
-            case "mane":
-            case "menu": {
-                let menu = `
+                // Generate menu text
+                let menuText = `
 ${global.ucapan()}
-Halo @${m.sender.split("@")[0]}, Saya adalah asissten whatsapp Bot buatan RzkyNT, Senang bisa membantu kamu. 
-Silahkan pilih menu dibawah ini
-▢ Botname : Rzky Store 
-▢ Version : 1.0.0
+Halo @${m.sender.split("@")[0]}, Saya adalah asisten WhatsApp Bot buatan RzkyNT
+
+▢ Botname : ${global.namaOwner} 
+▢ Version : ${global.version}
 ▢ Mode : ${sock.public ? "Public" : "Self"}
-▢ Creator : RzkyNT
+▢ Creator : ${global.Dev}
 ▢ Website : ${global.linkWebsite}
-▢ Runtime : ${runtime(process.uptime())}  
-  
-  *Command*
-➤ .menuios (command Ios) 
-➤ .allmenu (button) 
-➤ .allmenuv2 (no button) 
-`
+▢ Runtime : ${runtime(process.uptime())}
+
+📋 *MENU CATEGORIES*
+`;
+
+                // Add categories to menu text
+                Object.keys(allCommands).forEach(category => {
+                    menuText += `\n➢ *${category.toUpperCase()}*\n`;
+                    allCommands[category].slice(0, 5).forEach(item => {
+                        menuText += `- .${item.cmd}\n`;
+                    });
+                    if (allCommands[category].length > 5) {
+                        menuText += `- dan ${allCommands[category].length - 5} command lainnya...\n`;
+                    }
+                });
+
                 await sock.sendMessage(m.chat, {
                     interactiveMessage: {
-                        title: menu,
+                        title: menuText,
                         footer: global.Dev,
                         thumbnail: global.thumbnail2,
                         nativeFlowMessage: {
                             messageParamsJson: JSON.stringify({
                                 limited_time_offer: {
                                     text: "RzkyNT Store V1.0.0",
-                                    url: "https://rizqiahsansetiawan.ct.ws",
+                                    url: global.linkChannel,
                                     copy_code: "Expired 30/12/2025",
                                     expiration_time: Date.now() * 999
                                 },
                                 bottom_sheet: {
                                     in_thread_buttons_limit: 2,
                                     divider_indices: [1, 2, 3, 4, 5, 999],
-                                    list_title: "RzkyNT",
-                                    button_title: "Select Menu"
+                                    list_title: "RzkyNT Menu",
+                                    button_title: "Select Category"
                                 },
                                 tap_target_configuration: {
                                     title: "RzkyNT",
-                                    description: "bomboclard",
-                                    canonical_url: "https://t.me/maneeofficiall",
+                                    description: "WhatsApp Bot Assistant",
+                                    canonical_url: global.linkChannel,
                                     domain: "shop.example.com",
                                     button_index: 0
                                 }
@@ -3693,55 +3702,17 @@ Silahkan pilih menu dibawah ini
                                 {
                                     name: "single_select",
                                     buttonParamsJson: JSON.stringify({
-                                        title: "Developer",
-                                        sections: [
-                                            {
-                                                title: "RzkyNT ♻️",
-                                                highlight_label: "label",
-                                                rows: [
-                                                    {
-                                                        title: `@Saluran WhatsApp ${global.namaOwner} 👇🏻`,
-                                                        description: `${global.linkSaluran}\n\nJangan Lupa Follow Agar Tidak Ketinggalan Tentang Update Aplikasi Terbaru.`,
-                                                        id: "row_1"
-                                                    },
-                                                    {
-                                                        title: `@Whatsapp Developer ${global.namaOwner}`,
-                                                        description: `${global.wame}`,
-                                                        id: "row_2"
-                                                    }
-                                                ]
-                                            }
-                                        ],
+                                        title: "Menu Categories⤵️",
+                                        sections: categorySections,
                                         has_multiple_buttons: true
                                     })
                                 },
                                 {
                                     name: "cta_copy",
                                     buttonParamsJson: JSON.stringify({
-                                        display_text: "Expired 30/12/2025",
-                                        id: "123456789",
-                                        copy_code: "wa.me/6289529161314"
-                                    })
-                                },
-                                {
-                                    name: "quick_reply",
-                                    buttonParamsJson: JSON.stringify({
-                                        display_text: "All Menu🕊",
-                                        id: `.allmenu`
-                                    })
-                                },
-                                {
-                                    name: "quick_reply",
-                                    buttonParamsJson: JSON.stringify({
-                                        display_text: "All Menu V2⛅",
-                                        id: `.allmenuv2`
-                                    })
-                                },
-                                {
-                                    name: "quick_reply",
-                                    buttonParamsJson: JSON.stringify({
-                                        display_text: "All Menu Video🎬",
-                                        id: `.allmenuvid`
+                                        display_text: "Copy Channel Link",
+                                        id: "channel_link",
+                                        copy_code: global.linkChannel
                                     })
                                 },
                                 {
@@ -3757,13 +3728,6 @@ Silahkan pilih menu dibawah ini
                                         display_text: "Ping 🚀",
                                         id: `.ping`
                                     })
-                                },
-                                {
-                                    name: "quick_reply",
-                                    buttonParamsJson: JSON.stringify({
-                                        display_text: "Back To Menu↩️",
-                                        id: `.menu`
-                                    })
                                 }
                             ]
                         }
@@ -3771,177 +3735,14 @@ Silahkan pilih menu dibawah ini
                 }, { quoted: FakeChannel });
             }
                 break
+            case "mane": {
+                // Redirect to mmenu
+                return sock.sendMessage(m.chat, { text: "Gunakan .mmenu untuk menu utama" });
+            }
+                break
             case 'allmenuvid': {
-                await sock.sendMessage(m.chat, { react: { text: "⏱️", key: m.key } });
-                const fs = require('fs');
-                const jimp = require('jimp');
-
-                const videoPath = './amaneofc/neon.mp4';
-                const thumbnailPath = './amaneofc/neon.jpg';
-
-                if (!fs.existsSync(videoPath)) {
-                    return m.reply("Gagal menampilkan menu: File video './amaneofc/neon.mp4' tidak dapat ditemukan di server.");
-                }
-                if (!fs.existsSync(thumbnailPath)) {
-                    return m.reply("Gagal menampilkan menu: File thumbnail './amaneofc/neon.jpg' tidak dapat ditemukan di server.");
-                }
-
-                try {
-                    const videoBuffer = fs.readFileSync(videoPath);
-
-                    const image = await jimp.read(thumbnailPath);
-                    if (image.bitmap.width > image.bitmap.height) {
-                        image.resize(300, jimp.AUTO);
-                    } else {
-                        image.resize(jimp.AUTO, 300);
-                    }
-                    image.quality(90);
-                    const thumbnailBuffer = await image.getBufferAsync(jimp.MIME_JPEG);
-                    const menuCaption = `*RzkyNT Store 🛍*
-
-Halo👋🏻 @${m.sender.split("@")[0]} saya siap membantu.
-Berikut beberapa kemampuan saya :
-
-╭───☢︎ *Informasi Bot*
-│ ◈ Nama-Bot : RzkyNT
-│ ◈ Devoloper : ${global.Dev}
-│ ◈ Mode : ${sock.public ? '🌐 Public' : '🔒 Self'}
-│ ◈ Version : 1.0.0
-│ ◈ Runtime : ${runtime(process.uptime())}
-│ ◈ Instagram : Rzky.NT
-╰──────────────────⪨
-
- ➢ 𝗧𝗢𝗣 𝗚𝗔𝗡𝗜𝗘𝗥 𝗠𝗘𝗡𝗨
-- .listresponse
-- .delresponse
-- .addresponseW
-- .done
-- .proses
-- .installpanel
-- .pushkontak2
-
-➢ 𝗢𝗧𝗢𝗠𝗔𝗧𝗜𝗦 𝗠𝗘𝗡𝗨
-- .autojpmch on/off
-- .setjpmch
-- .delsetjpmch
-- .autojpm on/off
-- .setjpm
-- .delsetjpm
-- .autojoingrup on/off
-
-➢ 𝗠𝗔𝗜𝗡 𝗠𝗘𝗡𝗨
-- .ai
-- .pinterest
-- .listidgrup
-- .ssweb
-- .emojimix
-- .swtaggc
-- .brat
-- .bratvid (No support Emoji)
-- .tourl
-- .tourl2
-- .sticker
-- .cekidch
-- .paustad
-- .iqc
-- .hd
-- .hdvid
-
-➢ 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗠𝗘𝗡𝗨 
-- .mediafire
-- .tiktok
-- .tiktok2
-- .play
-- .ytmp3
-- .ytmp4
-
-➢ 𝗚𝗥𝗨𝗣 𝗠𝗘𝗡𝗨
-- .antilink
-- .antilink2
-- .welcome
-- .statusgrup
-- .hidetag
-- .kick
-- .open
-- .close
-
-➢ 𝗦𝗧𝗢𝗥𝗘 𝗠𝗘𝗡𝗨
-- .pushkontak
-- .pushkontak2
-- .savekontak
-- .stoppush
-- .setjeda
-- .savenomor
-- .jpm
-- .jpmht
-- .jpmch
-- .stopjpm
-- .payment
-- .proses
-- .done
-
-➢ 𝗣𝗔𝗡𝗘𝗟 𝗠𝗘𝗡𝗨
-- .addgrupreseller
-- .delgrupreseller
-- .listgrupreseller
-- .addseller
-- .delseller
-- .listseller
-- .1gb-unlimited
-- .delpanel
-- .listpanel
-- .cadmin
-- .deladmin
-- .listadmin
-- .subdomain
-- .installpanel
-- .startwings
-- .setptla
-- .setptlc
-- .setdomain
-- .upapikey
-
-➢ 𝗢𝗪𝗡𝗘𝗥 𝗠𝗘𝗡𝗨
-- .delproduk
-- .addproduk
-- .delrespon
-- .addrespon
-- .bljpm
-- .delbljpm
-- .addowner
-- .listowner
-- .delowner
-- .resetdb
-- .upswgc
-`;
-
-                    await sock.sendMessage(m.chat, {
-                        video: videoBuffer,
-                        gifPlayback: true,
-                        caption: menuCaption,
-                        contextInfo: {
-                            forwardingScore: 1,
-                            isForwarded: true,
-                            forwardedNewsletterMessageInfo: {
-                                newsletterName: `${global.namaOwner}`,
-                                newsletterJid: `120363400297473298@newsletter`,
-                            },
-                            externalAdReply: {
-                                title: global.Dev,
-                                body: global.namaOwner,
-                                thumbnail: thumbnailBuffer,
-                                sourceUrl: ``,
-                                mediaType: 1,
-                                renderLargerThumbnail: true,
-                                mentionedJid: [m.sender]
-                            }
-                        }
-                    }, { quoted: quoted.packSticker });
-
-                } catch (error) {
-                    console.error("Error saat mengirim menu 'allmenumane':", error);
-                    await m.reply(`Terjadi kesalahan teknis saat menampilkan menu. Silakan cek log/konsol untuk detail error: ${error.message}`);
-                }
+                // Redirect to mmenu
+                return sock.sendMessage(m.chat, { text: "Gunakan .mmenu untuk menu utama yang lebih terorganisir" });
             }
                 break;
             case "menuios": {
@@ -4089,387 +3890,14 @@ ${global.ucapan()}
                 return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
             }
                 break
-            case "rzky":
-            case "allmenu": {
-                let menu = `
-${global.ucapan()}
-Halo @${m.sender.split("@")[0]},
-▢ Botname : ${global.namaOwner} 
-▢ Version : ${global.version}
-▢ Mode : ${sock.public ? "Public" : "Self"}
-▢ Creator : ${global.Dev}
-▢ Website : ${global.linkWebsite}
-▢ Runtime : ${runtime(process.uptime())}  
- 
-➢ 𝗗𝗘𝗣𝗢𝗧 𝗔𝗜𝗥 𝗠𝗘𝗡𝗨 (CRM)
-- .daftar (Daftar Pelanggan)
-- .order (Pesan Galon)
-- .produk (List Harga)
-- .statusorder (Cek Status)
-- .batalorder (Batalkan)
-- .listorder (Admin)
-- .antar (Admin)
-- .selesai (Admin)
-- .listcust (Admin)
-
-➢ 𝗧𝗢𝗣 𝗚𝗔𝗡𝗜𝗘𝗥 𝗠𝗘𝗡𝗨
-- .listproduk
-- .done
-- .proses
-- .installpanel
-- .pushkontak2
-
-➢ 𝗢𝗧𝗢𝗠𝗔𝗧𝗜𝗦 𝗠𝗘𝗡𝗨
-- .autojpmch on/off
-- .setjpmch
-- .delsetjpmch
-- .autojpm on/off
-- .setjpm
-- .delsetjpm
-- .autojoingrup on/off
-
-➢ 𝗠𝗔𝗜𝗡 𝗠𝗘𝗡𝗨
-- .ai
-- .pinterest
-- .listidgrup
-- .ssweb
-- .emojimix
-- .swtaggc
-- .brat
-- .bratvid (No Support Emoji) 
-- .tourl
-- .tourl2
-- .sticker
-- .cekidch
-- .paustad
-- .iqc
-- .hd
-- .hdvid
-
-➢ 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗠𝗘𝗡𝗨 
-- .mediafire
-- .tiktok
-- .tiktok2
-- .play
-- .ytmp3
-- .ytmp4
-
-➢ 𝗚𝗥𝗨𝗣 𝗠𝗘𝗡𝗨
-- .antilink
-- .antilink2
-- .welcome
-- .statusgrup
-- .hidetag
-- .kick
-- .open
-- .close
-
-➢ 𝗦𝗧𝗢𝗥𝗘 𝗠𝗘𝗡𝗨
-- .pushkontak
-- .pushkontak2
-- .savekontak
-- .stoppush
-- .setjeda
-- .savenomor
-- .jpm
-- .jpmht
-- .jpmch
-- .stopjpm
-- .payment
-- .proses
-- .done
-
-➢ 𝗣𝗔𝗡𝗘𝗟 𝗠𝗘𝗡𝗨
-- .addgrupreseller
-- .delgrupreseller
-- .listgrupreseller
-- .addseller
-- .delseller
-- .listseller
-- .1gb-unlimited
-- .delpanel
-- .listpanel
-- .cadmin
-- .deladmin
-- .listadmin
-- .subdomain
-- .installpanel
-- .startwings
-- .setptla
-- .setptlc
-- .setdomain
-- .upapikey
-
-➢ 𝗢𝗪𝗡𝗘𝗥 𝗠𝗘𝗡𝗨
-- .delrespon
-- .addrespon
-- .bljpm
-- .delbljpm
-- .addowner
-- .listowner
-- .delowner
-- .resetdb
-- .upswgc`
-                // ➤  ｢ *INFORMASI UPDATE APK* ｣ 
-                // ${global.linkChannel}`
-                await sock.sendMessage(m.chat, {
-                    interactiveMessage: {
-                        title: menu,
-                        footer: global.Dev,
-                        thumbnail: global.thumbnail2,
-                        nativeFlowMessage: {
-                            messageParamsJson: JSON.stringify({
-                                limited_time_offer: {
-                                    text: "RzkyNT Store V1.0.0",
-                                    url: global.linkChannel,
-                                    copy_code: "Expired 3/11/2026",
-                                    expiration_time: Date.now() * 999
-                                },
-                                bottom_sheet: {
-                                    in_thread_buttons_limit: 2,
-                                    divider_indices: [1, 2, 3, 4, 5, 999],
-                                    list_title: "RzkyNT",
-                                    button_title: "Select Menu♻️"
-                                },
-                                tap_target_configuration: {
-                                    title: "RzkyNT",
-                                    description: "bomboclard",
-                                    canonical_url: global.linkChannel,
-                                    domain: "shop.example.com",
-                                    button_index: 0
-                                }
-                            }),
-                            buttons: [
-                                {
-                                    name: "single_select",
-                                    buttonParamsJson: JSON.stringify({ has_multiple_buttons: true })
-                                },
-                                {
-                                    name: "call_permission_request",
-                                    buttonParamsJson: JSON.stringify({ has_multiple_buttons: true })
-                                },
-                                {
-                                    name: "single_select",
-                                    buttonParamsJson: JSON.stringify({
-                                        title: "Menu⤵️",
-                                        sections: [
-                                            {
-                                                title: "RzkyNT",
-                                                highlight_label: "label",
-                                                rows: [
-                                                    {
-                                                        title: "@Saluran WhatsApp",
-                                                        description: global.linkSaluran,
-                                                        id: "row_1"
-                                                    },
-                                                    {
-                                                        title: "@Whatsapp Developer",
-                                                        description: global.owner,
-                                                        id: "row_2"
-                                                    }
-                                                ]
-                                            }
-                                        ],
-                                        has_multiple_buttons: true
-                                    })
-                                },
-                                {
-                                    name: "cta_copy",
-                                    buttonParamsJson: JSON.stringify({
-                                        display_text: "Expired 3/11/2025",
-                                        id: "123456789",
-                                        copy_code: global.linkChannel
-                                    })
-                                },
-                                {
-                                    name: "quick_reply",
-                                    buttonParamsJson: JSON.stringify({
-                                        display_text: "All Menu🔥",
-                                        id: `.allmenu`
-                                    })
-                                },
-                                {
-                                    name: "quick_reply",
-                                    buttonParamsJson: JSON.stringify({
-                                        display_text: "All Menu V2♻️",
-                                        id: `.allmenuv2`
-                                    })
-                                },
-                                {
-                                    name: "quick_reply",
-                                    buttonParamsJson: JSON.stringify({
-                                        display_text: "All Menu Video🎬",
-                                        id: `.allmenuvid`
-                                    })
-                                },
-                                {
-                                    name: "quick_reply",
-                                    buttonParamsJson: JSON.stringify({
-                                        display_text: "Owner 👑",
-                                        id: `.owner`
-                                    })
-                                },
-                                {
-                                    name: "quick_reply",
-                                    buttonParamsJson: JSON.stringify({
-                                        display_text: "Ping 🚀",
-                                        id: `.ping`
-                                    })
-                                },
-                                {
-                                    name: "quick_reply",
-                                    buttonParamsJson: JSON.stringify({
-                                        display_text: "Back To Menu↩️",
-                                        id: `.menu`
-                                    })
-                                }
-                            ]
-                        }
-                    }
-                }, { quoted: quoted.packSticker });
+            case "rzky": {
+                // Redirect to mmenu
+                return sock.sendMessage(m.chat, { text: "Gunakan .mmenu untuk menu utama yang lebih terorganisir" });
             }
                 break
             case "allmenuv2": {
-                const teks = `
-Halo @${m.sender.split("@")[0]}
-${global.ucapan()}
-
-╔═══[ 𝐈𝐍𝐅𝐎𝐑𝐌𝐀𝐒𝐈 𝐁𝐎𝐓 ]═══╗
-║ 𝐌𝐎𝐃𝐄    : ${sock.public ? " Public" : " Self"}
-║ 𝐑𝐔𝐍𝐓𝐈𝐌𝐄 : ${runtime(process.uptime())}
-║ 𝐎𝐖𝐍𝐄𝐑   : @${global.owner}
-╚══════════════════════╝
-
-➢ 𝗗𝗘𝗣𝗢𝗧 𝗔𝗜𝗥 𝗠𝗘𝗡𝗨 (CRM)
-- .daftar (Daftar Pelanggan)
-- .order (Pesan Galon)
-- .produk (List Harga)
-- .statusorder (Cek Status)
-- .batalorder (Batalkan)
-- .listorder (Admin)
-- .antar (Admin)
-- .selesai (Admin)
-- .listcust (Admin)
-
-➢ 𝗧𝗢𝗣 𝗚𝗔𝗡𝗜𝗘𝗥 𝗠𝗘𝗡𝗨
-- .listproduk
-- .done
-- .proses
-- .installpanel
-- .pushkontak2
-
-➢ 𝗢𝗧𝗢𝗠𝗔𝗧𝗜𝗦 𝗠𝗘𝗡𝗨
-- .autojpmch on/off
-- .setjpmch
-- .delsetjpmch
-- .autojpm on/off
-- .setjpm
-- .delsetjpm
-- .autojoingrup on/off
-
-➢ 𝗠𝗔𝗜𝗡 𝗠𝗘𝗡𝗨
-- .ai
-- .pinterest
-- .listidgrup
-- .ssweb
-- .emojimix
-- .swtaggc
-- .brat
-- .bratvid (No Support Emoji) 
-- .tourl
-- .tourl2
-- .sticker
-- .cekidch
-- .paustad
-- .iqc
-- .hd
-- .hdvid
-
-➢ 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗 𝗠𝗘𝗡𝗨 
-- .mediafire
-- .tiktok
-- .tiktok2
-- .play
-- .ytmp3
-- .ytmp4
-
-➢ 𝗚𝗥𝗨𝗣 𝗠𝗘𝗡𝗨
-- .antilink
-- .antilink2
-- .welcome
-- .statusgrup
-- .hidetag
-- .kick
-- .open
-- .close
-
-➢ 𝗦𝗧𝗢𝗥𝗘 𝗠𝗘𝗡𝗨
-- .pushkontak
-- .pushkontak2
-- .savekontak
-- .stoppush
-- .setjeda
-- .savenomor
-- .jpm
-- .jpmht
-- .jpmch
-- .stopjpm
-- .payment
-- .proses
-- .done
-
-➢ 𝗣𝗔𝗡𝗘𝗟 𝗠𝗘𝗡𝗨
-- .addgrupreseller
-- .delgrupreseller
-- .listgrupreseller
-- .addseller
-- .delseller
-- .listseller
-- .1gb-unlimited
-- .delpanel
-- .listpanel
-- .cadmin
-- .deladmin
-- .listadmin
-- .subdomain
-- .installpanel
-- .startwings
-- .setptla
-- .setptlc
-- .setdomain
-- .upapikey
-
-➢ 𝗢𝗪𝗡𝗘𝗥 𝗠𝗘𝗡𝗨
-- .delproduk
-- .addproduk
-- .delrespon
-- .addrespon
-- .bljpm
-- .delbljpm
-- .addowner
-- .listowner
-- .delowner
-- .resetdb
-- .upswgc
-`
-                await sock.sendMessage(m.chat, {
-                    text: teks,
-                    contextInfo: {
-                        mentionedJid: [m.sender, global.owner + "@s.whatsapp.net"],
-                        isForwarded: true,
-                        forwardedNewsletterMessageInfo: {
-                            newsletterJid: global.idChannel,
-                            newsletterName: `Powered by ${global.namaOwner}`,
-                            serverId: 200
-                        },
-                        externalAdReply: {
-                            thumbnailUrl: global.thumbnail,
-                            title: "Mane Store 4.0.0",
-                            renderLargerThumbnail: true,
-                            mediaType: 1
-                        }
-                    }
-                }, { quoted: null });
+                // Redirect to mmenu
+                return sock.sendMessage(m.chat, { text: "Gunakan .mmenu untuk menu utama yang lebih terorganisir" });
             }
                 break;
             case "ping": {
@@ -11150,6 +10578,61 @@ Jangan bilang makasih berlebihan ya!! Bukan karena aku perhatian kok!! >///<`
                 }
             }
                 break;
+                case "rvo": case "readviewonce": {
+                    if (!m.quoted) return m.reply(`Balas pesan sekali lihat dengan ketik *${cmd}*`)
+                    let msg = m.quoted.message
+                    if (!msg.viewOnce && m.quoted.mtype !== "viewOnceMessageV2") return m.reply("Pesan itu bukan sekali lihat!")
+                        let mesages = m.quoted.message?.videoMessage || m.quoted.message?.imageMessage || m.quoted.message?.audioMessage || ""
+                        let type = m.quoted.message?.imageMessage ? "image" : m.quoted.message?.videoMessage ? "video" : m.quoted.message?.audioMessage ? "audio" : ""
+                    let media = await downloadContentFromMessage(mesages, type)
+                        let buffer = Buffer.from([])
+                        for await (const chunk of media) {
+                            buffer = Buffer.concat([buffer, chunk])
+                        }
+                        const cap = mesages?.caption ? `*Caption:* ${mesages.caption}` : ""
+                        if (/video/.test(type)) {
+                            await sock.sendMessage(m.chat, {video: buffer, caption: cap}, {quoted: m})
+                        } else if (/image/.test(type)) {
+                            await sock.sendMessage(m.chat, {image: buffer, caption: cap}, {quoted: m})
+                        } else if (/audio/.test(type)) {
+                            await sock.sendMessage(m.chat, {audio: buffer, mimetype: "audio/mpeg", ptt: true}, {quoted: m})
+                        }
+                        
+                    }
+                break
+                case "remini2": case "hd2": {
+    let quoted = m.quoted ? m.quoted : m;
+    let mime = (quoted.msg || quoted).mimetype || "";
+    if (!/image/.test(mime)) return m.reply(" Sambil kirim atau reply gambar untuk di-HD-in.");
+
+    await sock.sendMessage(m.chat, { react: { text: "👁️‍🗨️", key: m.key } });
+
+    try {
+        let mediaPath = await sock.downloadAndSaveMediaMessage(quoted);
+        let url = await uploadToCloudku(mediaPath);
+
+        // API upscale 4K
+        let apiUrl = `https://api.ryuu-dev.offc.my.id/imagecreator/upscaler4k?url=${encodeURIComponent(url)}`;
+        let { data } = await axios.get(apiUrl);
+
+        if (!data.status || !data.result) {
+            if (fs.existsSync(mediaPath)) fs.unlinkSync(mediaPath);
+            return m.reply(`❌ Gagal memproses gambar: ${data.message || 'Unknown error'}`);
+        }
+
+        await sock.sendMessage(
+            m.chat,
+            { image: { url: data.result }, caption: `✅ *Successful Upscale 4k Quality*\n📎 URL: ${data.result}` },
+            { quoted: m }
+        );
+
+        if (fs.existsSync(mediaPath)) fs.unlinkSync(mediaPath);
+    } catch (err) {
+        console.error(err);
+        m.reply(`❌ Error: ${err.message}`);
+    }
+}
+break
 
             case "kecepatan": {
                 try {
