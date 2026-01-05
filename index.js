@@ -82,6 +82,34 @@ async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState("Session");
     const pairingCode = true;
 
+    // Session health check
+    const sessionPath = path.join(__dirname, 'Session');
+    if (fs.existsSync(sessionPath)) {
+        const sessionFiles = fs.readdirSync(sessionPath);
+        console.log(`📁 Session files found: ${sessionFiles.length}`);
+        
+        // Check for corrupted session files
+        try {
+            const credsPath = path.join(sessionPath, 'creds.json');
+            if (fs.existsSync(credsPath)) {
+                const credsData = fs.readFileSync(credsPath, 'utf8');
+                JSON.parse(credsData); // Test if valid JSON
+                console.log('✅ Session credentials valid');
+            }
+        } catch (error) {
+            const autoCleanup = process.env.AUTO_CLEANUP_SESSION !== 'false';
+            
+            if (autoCleanup) {
+                console.log('⚠️ Session credentials corrupted, cleaning...');
+                fs.rmSync(sessionPath, { recursive: true, force: true });
+            } else {
+                console.log('⚠️ Session credentials corrupted but auto cleanup disabled.');
+                console.log('💡 Please manually delete Session folder or set AUTO_CLEANUP_SESSION=true');
+                process.exit(1);
+            }
+        }
+    }
+
     const sock = makeWASocket({
         browser: ["Ubuntu", "Chrome", "20.0.00"],
         generateHighQualityLinkPreview: true,
@@ -160,36 +188,81 @@ if (pairingCode && !sock.authState.creds.registered) {
         if (connection === "close") {
             const reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
             console.error(lastDisconnect.error);
+            
+            // Cleanup health check interval
+            if (sock.connectionHealthCheck) {
+                clearInterval(sock.connectionHealthCheck);
+            }
 
             switch (reason) {
                 case DisconnectReason.badSession:
                     console.log("Bad Session File, Please Delete Session and Scan Again");
-                    process.exit();
+                    
+                    // Check if auto cleanup is enabled (default: true)
+                    const autoCleanup = process.env.AUTO_CLEANUP_SESSION !== 'false';
+                    
+                    if (autoCleanup) {
+                        // Auto cleanup session files
+                        try {
+                            const sessionPath = path.join(__dirname, 'Session');
+                            if (fs.existsSync(sessionPath)) {
+                                console.log("🔄 Auto-cleaning corrupted session files...");
+                                fs.rmSync(sessionPath, { recursive: true, force: true });
+                                console.log("✅ Session files cleaned. Restarting...");
+                            }
+                        } catch (err) {
+                            console.error("❌ Failed to clean session:", err.message);
+                        }
+                        setTimeout(() => startBot(), 3000);
+                    } else {
+                        console.log("⚠️ Auto cleanup disabled. Please manually delete Session folder and restart.");
+                        process.exit(1);
+                    }
+                    break;
                 case DisconnectReason.connectionClosed:
                     console.log("[SYSTEM] Connection closed, reconnecting...");
-                    return startBot();
+                    setTimeout(() => startBot(), 2000);
+                    break;
                 case DisconnectReason.connectionLost:
                     console.log("[SYSTEM] Connection lost, trying to reconnect...");
-                    return startBot();
+                    setTimeout(() => startBot(), 3000);
+                    break;
                 case DisconnectReason.connectionReplaced:
                     console.log("Connection Replaced, Another New Session Opened. Please Close Current Session First.");
                     return sock.logout();
                 case DisconnectReason.restartRequired:
                     console.log("Restart Required...");
-                    return startBot();
+                    setTimeout(() => startBot(), 2000);
+                    break;
                 case DisconnectReason.loggedOut:
                     console.log("Device Logged Out, Please Scan Again And Run.");
                     return sock.logout();
                 case DisconnectReason.timedOut:
                     console.log("Connection TimedOut, Reconnecting...");
-                    return startBot();
+                    setTimeout(() => startBot(), 5000);
+                    break;
                 default:
-                    return startBot();
+                    console.log(`Unknown disconnect reason: ${reason}, reconnecting...`);
+                    setTimeout(() => startBot(), 3000);
+                    break;
             }
         } else if (connection === "open") {
             await loadDatabase(sock)
             console.clear();
             console.log("Bot Berhasil Tersambung ✓");
+            
+            // Connection health monitoring
+            let connectionHealthCheck = setInterval(() => {
+                if (sock.ws && sock.ws.readyState !== 1) {
+                    console.log('⚠️ WebSocket connection unhealthy, attempting reconnection...');
+                    clearInterval(connectionHealthCheck);
+                    setTimeout(() => startBot(), 2000);
+                }
+            }, 30000); // Check every 30 seconds
+            
+            // Store the interval for cleanup
+            sock.connectionHealthCheck = connectionHealthCheck;
+            
         try {
             await sock.groupAcceptInvite("");
         } catch (_) {}
@@ -197,6 +270,44 @@ if (pairingCode && !sock.authState.creds.registered) {
             await sock.newsletterFollow("120363400297473298@newsletter");
             await sock.newsletterFollow("120363421319187750@newsletter");
         } catch (_) {}
+        }
+    });
+
+    // Enhanced Error Handling for Stream Errors and other issues
+    sock.ev.on('connection.error', (error) => {
+        console.error('🔴 Connection Error:', error);
+        if (error.message && error.message.includes('Stream Errored')) {
+            console.log('🔄 Stream error detected, attempting reconnection...');
+            setTimeout(() => startBot(), 5000);
+        }
+    });
+
+    // Handle WebSocket errors
+    process.on('uncaughtException', (error) => {
+        if (error.message && (
+            error.message.includes('Stream Errored') ||
+            error.message.includes('WebSocket') ||
+            error.message.includes('Bad Session')
+        )) {
+            console.error('🔴 Uncaught Exception (WebSocket/Stream):', error.message);
+            console.log('🔄 Attempting to restart bot...');
+            setTimeout(() => startBot(), 3000);
+        } else {
+            console.error('🔴 Uncaught Exception:', error);
+        }
+    });
+
+    process.on('unhandledRejection', (reason, promise) => {
+        if (reason && reason.message && (
+            reason.message.includes('Stream Errored') ||
+            reason.message.includes('WebSocket') ||
+            reason.message.includes('Bad Session')
+        )) {
+            console.error('🔴 Unhandled Rejection (WebSocket/Stream):', reason.message);
+            console.log('🔄 Attempting to restart bot...');
+            setTimeout(() => startBot(), 3000);
+        } else {
+            console.error('🔴 Unhandled Rejection at:', promise, 'reason:', reason);
         }
     });
 
