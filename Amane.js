@@ -3560,82 +3560,6 @@ break;
                         { cmd: "autojoingrup", desc: "Mengaktifkan/menonaktifkan auto join grup." }
                     ]
                 };
-                if (text) {
-                    const category = text.trim()
-                    if (!allCommands[category]) {
-                        return m.reply("❌ Kategori tidak ditemukan!")
-                    }
-
-                    const commandSections = [{
-                        title: `📂 ${category}`,
-                        rows: allCommands[category].map(item => ({
-                            title: `.${item.cmd}`,
-                            description: item.desc,
-                            id: `.${item.cmd}`
-                        }))
-                    }]
-
-                    return await sock.sendMessage(m.chat, {
-                        interactiveMessage: {
-                            title: `📂 ${category}`,
-                            footer: global.Dev,
-                            thumbnail: global.thumbnail2,
-                            nativeFlowMessage: {
-                                messageParamsJson: JSON.stringify({
-                                    limited_time_offer: {
-                                        text: "RzkyNT Store V1.0.0",
-                                        url: global.linkChannel,
-                                        copy_code: "Expired 30/12/2025",
-                                        expiration_time: Date.now() * 999
-                                    },
-                                    bottom_sheet: {
-                                        in_thread_buttons_limit: 2,
-                                        divider_indices: [1, 2, 3, 4, 5, 999],
-                                        list_title: `Menu ${category}`,
-                                        button_title: "Select Command"
-                                    }
-                                }),
-                                buttons: [
-                                       {
-                                    name: "single_select",
-                                    buttonParamsJson: JSON.stringify({ has_multiple_buttons: true })
-                                },
-                                {
-                                    name: "call_permission_request",
-                                    buttonParamsJson: JSON.stringify({ has_multiple_buttons: true })
-                                },
-                                    {
-                                        name: "single_select",
-                                        buttonParamsJson: JSON.stringify({
-                                            title: "Commands⤵️",
-                                            sections: commandSections,
-                                            has_multiple_buttons: true
-                                        })
-                                    },
-                                    {
-                                        name: "quick_reply",
-                                        buttonParamsJson: JSON.stringify({
-                                            display_text: "⬅️ Back to Main Menu",
-                                            id: `.mmenu`
-                                        })
-                                    }
-                                ]
-                            }
-                        }
-                    }, { quoted: FakeChannel })
-                }
-
-                // =========================
-                // TANPA ARGUMEN → PILIH KATEGORI
-                // =========================
-                const categorySections = [{
-                    title: "📋 Daftar Kategori",
-                    rows: Object.keys(allCommands).map(cat => ({
-                        title: cat,
-                        description: `Buka Menu ${cat}`,
-                        id: `.mmenu ${cat}`
-                    }))
-                }]
 
                 // Generate menu text
                 let menuText = `
@@ -3649,20 +3573,21 @@ Halo @${m.sender.split("@")[0]}, Saya adalah asisten WhatsApp Bot buatan RzkyNT
 ▢ Website : ${global.linkWebsite}
 ▢ Runtime : ${runtime(process.uptime())}
 
-📋 *MENU CATEGORIES*
+📋 *SEMUA MENU TERSEDIA DI BAWAH*
+Pilih kategori untuk melihat semua command
 `;
 
-                // Add categories to menu text
-                Object.keys(allCommands).forEach(category => {
-                    menuText += `\n➢ *${category.toUpperCase()}*\n`;
-                    allCommands[category].slice(0, 5).forEach(item => {
-                        menuText += `- .${item.cmd}\n`;
-                    });
-                    if (allCommands[category].length > 5) {
-                        menuText += `- dan ${allCommands[category].length - 5} command lainnya...\n`;
-                    }
-                });
+                // Create sections for all categories with their commands
+                const allSections = Object.keys(allCommands).map(category => ({
+                    title: `📂 ${category}`,
+                    rows: allCommands[category].map(item => ({
+                        title: `.${item.cmd}`,
+                        description: item.desc,
+                        id: `.${item.cmd}`
+                    }))
+                }));
 
+                // Main menu display with all commands accessible directly
                 await sock.sendMessage(m.chat, {
                     interactiveMessage: {
                         title: menuText,
@@ -3680,7 +3605,7 @@ Halo @${m.sender.split("@")[0]}, Saya adalah asisten WhatsApp Bot buatan RzkyNT
                                     in_thread_buttons_limit: 2,
                                     divider_indices: [1, 2, 3, 4, 5, 999],
                                     list_title: "RzkyNT Menu",
-                                    button_title: "Select Category"
+                                    button_title: "Select Command"
                                 },
                                 tap_target_configuration: {
                                     title: "RzkyNT",
@@ -3702,8 +3627,8 @@ Halo @${m.sender.split("@")[0]}, Saya adalah asisten WhatsApp Bot buatan RzkyNT
                                 {
                                     name: "single_select",
                                     buttonParamsJson: JSON.stringify({
-                                        title: "Menu Categories⤵️",
-                                        sections: categorySections,
+                                        title: "📋 Semua Menu Commands",
+                                        sections: allSections,
                                         has_multiple_buttons: true
                                     })
                                 },
@@ -8696,148 +8621,148 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
             }
                 break
 
-            case "subdo":
-            case "subdomain": {
-                if (!isOwner) return m.reply(mess.owner);
-                if (!text.includes("|")) return m.reply(`*Contoh penggunaan :*
-ketik ${cmd} hostname|ipvps`);
+//             case "subdo":
+//             case "subdomain": {
+//                 if (!isOwner) return m.reply(mess.owner);
+//                 if (!text.includes("|")) return m.reply(`*Contoh penggunaan :*
+// ketik ${cmd} hostname|ipvps`);
 
-                const obj = Object.keys(subdomain);
-                if (obj.length < 1) return m.reply("Tidak ada domain yang tersedia.");
+//                 const obj = Object.keys(subdomain);
+//                 if (obj.length < 1) return m.reply("Tidak ada domain yang tersedia.");
 
-                const hostname = text.split("|")[0].toLowerCase();
-                const ip = text.split("|")[1];
-                const rows = obj.map((domain, index) => ({
-                    title: `🌐 ${domain}`,
-                    description: `Result: https://${hostname}.${domain}`,
-                    id: `.subdomain-response ${index + 1} ${hostname.trim()}|${ip}`
-                }));
+//                 const hostname = text.split("|")[0].toLowerCase();
+//                 const ip = text.split("|")[1];
+//                 const rows = obj.map((domain, index) => ({
+//                     title: `🌐 ${domain}`,
+//                     description: `Result: https://${hostname}.${domain}`,
+//                     id: `.subdomain-response ${index + 1} ${hostname.trim()}|${ip}`
+//                 }));
 
-                await sock.sendMessage(m.chat, {
-                    buttons: [
-                        {
-                            buttonId: 'action',
-                            buttonText: { displayText: 'ini pesan interactiveMeta' },
-                            type: 4,
-                            nativeFlowInfo: {
-                                name: 'single_select',
-                                paramsJson: JSON.stringify({
-                                    title: 'Pilih Domain',
-                                    sections: [
-                                        {
-                                            title: `© Powered By ${namaOwner}`,
-                                            rows: rows
-                                        }
-                                    ]
-                                })
-                            }
-                        }
-                    ],
-                    headerType: 1,
-                    viewOnce: true,
-                    text: `\nPilih Domain Server Yang Tersedia\nTotal Domain: ${obj.length}\n`
-                }, { quoted: m });
-            }
-                break;
+//                 await sock.sendMessage(m.chat, {
+//                     buttons: [
+//                         {
+//                             buttonId: 'action',
+//                             buttonText: { displayText: 'ini pesan interactiveMeta' },
+//                             type: 4,
+//                             nativeFlowInfo: {
+//                                 name: 'single_select',
+//                                 paramsJson: JSON.stringify({
+//                                     title: 'Pilih Domain',
+//                                     sections: [
+//                                         {
+//                                             title: `© Powered By ${namaOwner}`,
+//                                             rows: rows
+//                                         }
+//                                     ]
+//                                 })
+//                             }
+//                         }
+//                     ],
+//                     headerType: 1,
+//                     viewOnce: true,
+//                     text: `\nPilih Domain Server Yang Tersedia\nTotal Domain: ${obj.length}\n`
+//                 }, { quoted: m });
+//             }
+//                 break;
 
-            case "subdomain-response": {
-                if (!isOwner) return m.reply(mess.owner);
-                if (!text) return;
+//             case "subdomain-response": {
+//                 if (!isOwner) return m.reply(mess.owner);
+//                 if (!text) return;
 
-                if (!args[0] || isNaN(args[0])) return m.reply("Domain tidak ditemukan!");
-                const dom = Object.keys(subdomain);
-                const domainIndex = Number(args[0]) - 1;
-                if (domainIndex >= dom.length || domainIndex < 0) return m.reply("Domain tidak ditemukan!");
+//                 if (!args[0] || isNaN(args[0])) return m.reply("Domain tidak ditemukan!");
+//                 const dom = Object.keys(subdomain);
+//                 const domainIndex = Number(args[0]) - 1;
+//                 if (domainIndex >= dom.length || domainIndex < 0) return m.reply("Domain tidak ditemukan!");
 
-                if (!args[1] || !args[1].includes("|")) return m.reply("Hostname/IP Tidak ditemukan!");
+//                 if (!args[1] || !args[1].includes("|")) return m.reply("Hostname/IP Tidak ditemukan!");
 
-                let tldnya = dom[domainIndex];
-                const [host, ip] = args[1].split("|").map(str => str.trim());
+//                 let tldnya = dom[domainIndex];
+//                 const [host, ip] = args[1].split("|").map(str => str.trim());
 
-                async function subDomain1(host, ip) {
-                    return new Promise((resolve) => {
-                        axios.post(
-                            `https://api.cloudflare.com/client/v4/zones/${subdomain[tldnya].zone}/dns_records`,
-                            {
-                                type: "A",
-                                name: `${host.replace(/[^a-z0-9.-]/gi, "")}.${tldnya}`,
-                                content: ip.replace(/[^0-9.]/gi, ""),
-                                ttl: 3600,
-                                priority: 10,
-                                proxied: false,
-                            },
-                            {
-                                headers: {
-                                    Authorization: `Bearer ${subdomain[tldnya].apitoken}`,
-                                    "Content-Type": "application/json",
-                                },
-                            }
-                        ).then(response => {
-                            let res = response.data;
-                            if (res.success) {
-                                resolve({ success: true, name: res.result?.name, ip: res.result?.content });
-                            } else {
-                                resolve({ success: false, error: "Gagal membuat subdomain." });
-                            }
-                        }).catch(error => {
-                            let errorMsg = error.response?.data?.errors?.[0]?.message || error.message || "Terjadi kesalahan!";
-                            resolve({ success: false, error: errorMsg });
-                        });
-                    });
-                }
+//                 async function subDomain1(host, ip) {
+//                     return new Promise((resolve) => {
+//                         axios.post(
+//                             `https://api.cloudflare.com/client/v4/zones/${subdomain[tldnya].zone}/dns_records`,
+//                             {
+//                                 type: "A",
+//                                 name: `${host.replace(/[^a-z0-9.-]/gi, "")}.${tldnya}`,
+//                                 content: ip.replace(/[^0-9.]/gi, ""),
+//                                 ttl: 3600,
+//                                 priority: 10,
+//                                 proxied: false,
+//                             },
+//                             {
+//                                 headers: {
+//                                     Authorization: `Bearer ${subdomain[tldnya].apitoken}`,
+//                                     "Content-Type": "application/json",
+//                                 },
+//                             }
+//                         ).then(response => {
+//                             let res = response.data;
+//                             if (res.success) {
+//                                 resolve({ success: true, name: res.result?.name, ip: res.result?.content });
+//                             } else {
+//                                 resolve({ success: false, error: "Gagal membuat subdomain." });
+//                             }
+//                         }).catch(error => {
+//                             let errorMsg = error.response?.data?.errors?.[0]?.message || error.message || "Terjadi kesalahan!";
+//                             resolve({ success: false, error: errorMsg });
+//                         });
+//                     });
+//                 }
 
-                const domnode = `node${getRandom("")}.${host}`;
-                let panelDomain = "";
-                let nodeDomain = "";
+//                 const domnode = `node${getRandom("")}.${host}`;
+//                 let panelDomain = "";
+//                 let nodeDomain = "";
 
-                for (let i = 0; i < 2; i++) {
-                    let subHost = i === 0 ? host.toLowerCase() : domnode;
-                    try {
-                        let result = await subDomain1(subHost, ip);
-                        if (result.success) {
-                            if (i === 0) panelDomain = result.name;
-                            else nodeDomain = result.name;
-                        } else {
-                            return m.reply(result.error);
-                        }
-                    } catch (err) {
-                        return m.reply("Error: " + err.message);
-                    }
-                }
+//                 for (let i = 0; i < 2; i++) {
+//                     let subHost = i === 0 ? host.toLowerCase() : domnode;
+//                     try {
+//                         let result = await subDomain1(subHost, ip);
+//                         if (result.success) {
+//                             if (i === 0) panelDomain = result.name;
+//                             else nodeDomain = result.name;
+//                         } else {
+//                             return m.reply(result.error);
+//                         }
+//                     } catch (err) {
+//                         return m.reply("Error: " + err.message);
+//                     }
+//                 }
 
-                let teks = `
-*✅ Subdomain Berhasil Dibuat*
+//                 let teks = `
+// *✅ Subdomain Berhasil Dibuat*
 
-- IP: ${ip}
-- Panel: ${panelDomain}
-- Node: ${nodeDomain}
-`;
+// - IP: ${ip}
+// - Panel: ${panelDomain}
+// - Node: ${nodeDomain}
+// `;
 
-                let msg = await generateWAMessageFromContent(m.chat, {
-                    viewOnceMessage: {
-                        message: {
-                            interactiveMessage: {
-                                body: { text: teks },
-                                nativeFlowMessage: {
-                                    buttons: [
-                                        {
-                                            name: "cta_copy",
-                                            buttonParamsJson: `{"display_text":"Copy Subdomain Panel","copy_code":"${panelDomain}"}`
-                                        },
-                                        {
-                                            name: "cta_copy",
-                                            buttonParamsJson: `{"display_text":"Copy Subdomain Node","copy_code":"${nodeDomain}"}`
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    }
-                }, { userJid: m.sender, quoted: m });
+//                 let msg = await generateWAMessageFromContent(m.chat, {
+//                     viewOnceMessage: {
+//                         message: {
+//                             interactiveMessage: {
+//                                 body: { text: teks },
+//                                 nativeFlowMessage: {
+//                                     buttons: [
+//                                         {
+//                                             name: "cta_copy",
+//                                             buttonParamsJson: `{"display_text":"Copy Subdomain Panel","copy_code":"${panelDomain}"}`
+//                                         },
+//                                         {
+//                                             name: "cta_copy",
+//                                             buttonParamsJson: `{"display_text":"Copy Subdomain Node","copy_code":"${nodeDomain}"}`
+//                                         }
+//                                     ]
+//                                 }
+//                             }
+//                         }
+//                     }
+//                 }, { userJid: m.sender, quoted: m });
 
-                await sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
-            }
-                break;
+//                 await sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+//             }
+//                 break;
 
             case "installpanel": {
                 if (!isOwner) return m.reply(mess.owner)
@@ -9105,6 +9030,50 @@ Silahkan setting allocation & ambil token node di node yang sudah dibuat oleh bo
                 ress.connect(connSettings);
             }
                 break
+                case "alldown":
+case "downr": {
+ if (!text) return m.reply(`Link nya mana?!\nContoh: *${cmd} https://vt.tiktok.com/ZSygRMVNM/*`)
+
+ await m.reply('Waitt! Loading download all download!')
+
+ try {
+ const { data } = await axios.post(
+ 'https://downr.org/.netlify/functions/download',
+ { url: text },
+ {
+ headers: {
+ 'content-type': 'application/json',
+ origin: 'https://downr.org',
+ referer: 'https://downr.org/',
+ 'user-agent': 
+ 'Mozilla/5.0 (Linux; Android 15; SM-F958 Build/AP3A.240905.015) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.6723.86 Mobile Safari/537.36',
+ }
+ }
+ );
+
+ if (!data || !data.medias || !data.medias.length)
+ return m.reply('Link Invalid')
+
+ const video = data.medias.find(v => v.quality === 'hd_no_watermark') || data.medias[0]
+ const videoUrl = video.url
+
+ await sock.sendMessage(
+ m.chat,
+ {
+ video: { url: videoUrl },
+ caption: `🎬 *${data.title || 'Download Success'}*\n👤 ${data.author || '-'}\n\nStatus Done✅`,
+ mimetype: 'video/mp4',
+ jpegThumbnail: data.thumbnail ? await getBuffer(data.thumbnail) : null
+ },
+ { quoted: m }
+ );
+
+ } catch (e) {
+ console.error('Error downloader:', e)
+ await m.reply(`Error:\n${e.message || e}`)
+ }
+}
+break
 
             case "startwings":
             case "configurewings": {
@@ -10152,6 +10121,50 @@ Silahkan setting allocation & ambil token node di node yang sudah dibuat oleh bo
                     m.reply("❌ Terjadi kesalahan saat membuat gambar pak ustad.")
                 }
             }
+                break
+                case 'reactch':
+                case 'rch': {
+                if (!isOwner) return m.reply(mess.owner);
+                if (!text) return m.reply(`Contoh: ${cmd}reactch https://whatsapp.com/channel/xxxx 😂,😮,👍`)
+
+
+                let [link, emoji] = text.includes('|') ? text.split('|') : text.split(' ')
+
+                if (!link || !emoji) return m.reply(`Format salah!\nContoh:\n${cmd}reactch https://whatsapp.com/channel/xxxx 😂,😮,👍`)
+
+                try {
+                const res = await fetch(
+                `https://react.whyux-xec.my.id/api/rch?link=${encodeURIComponent(link)}&emoji=${encodeURIComponent(emoji)}`,
+                {
+                method: "GET",
+                headers: {
+                "x-api-key": "211b9a4e520a973ba2e18d16d8e4e1ea021f822dd0e3322b46e9dcf72cd8ccb1"
+                }
+                }
+                )
+
+                // ambil mentah
+                const raw = await res.text()
+
+                // tampilkan raw di console (supaya tahu hasil asli API)
+                console.log("RAW RESP:", raw)
+
+                // coba parse json
+                let json
+                try {
+                json = JSON.parse(raw)
+                } catch {
+                // API tidak kirim JSON tapi react tetap jalan
+                return m.reply(`✅ *React Channel Berhasil!*\n(Non JSON response API)`)
+                }
+
+                // API tidak kirim status → kita langsung anggap success
+                m.reply(`✅ *React Channel Berhasil!*\n• Link: ${link}\n• Emoji: ${emoji}`)
+                
+                } catch (e) {
+                m.reply(`❌ Error: ${e}`)
+                }
+                }
                 break
             case 'mf':
             case 'mediafire':
