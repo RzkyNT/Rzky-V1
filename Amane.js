@@ -1632,6 +1632,113 @@ module.exports = async (m, sock) => {
             }
             break;
 
+            // === TIKTOK FEATURES ===
+            case "tiktokvideosearch":
+            case "ttvideosearch":
+            case "ttsearch": {
+                if (!text) return m.reply(`Contoh: ${cmd} hijab`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    
+                    const response = await fetch(`https://api.gimita.id/api/search/tiktokvideo?count=30&query=${encodeURIComponent(text)}`);
+                    const data = await response.json();
+                    
+                    console.log("TikTok Video API Response:", data); // Debug log
+                    
+                    if (!data.success || !data.data || data.data.length === 0) {
+                        return m.reply("❌ Tidak ada video TikTok yang ditemukan untuk pencarian tersebut.");
+                    }
+                    
+                    // Create interactive list with video results
+                    const videos = data.data.slice(0, 10).map((video, index) => ({
+                        header: `📱 ${video.title || `Video ${index + 1}`}`,
+                        title: `👤 ${video.author || 'Unknown'} | 👀 ${video.play_count || '0'}`,
+                        description: `⏱️ ${video.duration || 'Unknown'} | ❤️ ${video.digg_count || '0'}`,
+                        id: `.tiktokvideodownload ${encodeURIComponent(video.play_addr || video.video_url)}`
+                    }));
+                    
+                    let msg = generateWAMessageFromContent(m.chat, {
+                        viewOnceMessage: {
+                            message: {
+                                messageContextInfo: {
+                                    deviceListMetadata: {},
+                                    deviceListMetadataVersion: 2
+                                },
+                                interactiveMessage: {
+                                    body: { text: `📱 *HASIL PENCARIAN TIKTOK VIDEO*\n\nQuery: "${text}"\n\nPilih video yang ingin didownload:` },
+                                    footer: { text: `© Powered By ${global.namaOwner}` },
+                                    header: { title: "📱 TikTok Video Search", subtitle: "", hasMediaAttachment: false },
+                                    nativeFlowMessage: {
+                                        buttons: [
+                                            {
+                                                name: "single_select",
+                                                buttonParamsJson: JSON.stringify({
+                                                    title: "Pilih Video TikTok",
+                                                    sections: [{
+                                                        title: "Video Results",
+                                                        rows: videos
+                                                    }]
+                                                })
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }, { userJid: m.sender, quoted: m });
+                    
+                    await sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                    
+                } catch (error) {
+                    console.error("TikTok Video Search Error:", error);
+                    m.reply("❌ Terjadi kesalahan saat mencari video di TikTok.");
+                }
+            }
+            break;
+
+            case "tiktokvideodownload": {
+                const videoUrl = decodeURIComponent(text);
+                if (!videoUrl) {
+                    return m.reply("❌ URL TikTok video tidak valid.");
+                }
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "⏳", key: m.key } });
+                    
+                    // Try to download the video directly
+                    await sock.sendMessage(m.chat, {
+                        video: { url: videoUrl },
+                        caption: `📱 *TIKTOK VIDEO DOWNLOAD*\n\n✅ Video berhasil didownload!\n\n© Powered By ${global.namaOwner}`,
+                        mimetype: 'video/mp4'
+                    }, { quoted: m });
+                    
+                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                    
+                } catch (error) {
+                    console.error("TikTok Video Download Error:", error);
+                    
+                    // Fallback: Try using proxy
+                    try {
+                        const proxyUrl = `https://api.gimita.id/api/tools/proxy?url=${encodeURIComponent(videoUrl)}`;
+                        
+                        await sock.sendMessage(m.chat, {
+                            video: { url: proxyUrl },
+                            caption: `📱 *TIKTOK VIDEO DOWNLOAD*\n\n✅ Video berhasil didownload (via proxy)!\n\n© Powered By ${global.namaOwner}`,
+                            mimetype: 'video/mp4'
+                        }, { quoted: m });
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        
+                    } catch (proxyError) {
+                        console.error("TikTok Proxy Download Error:", proxyError);
+                        m.reply("❌ Terjadi kesalahan saat mendownload video TikTok. Video mungkin tidak tersedia atau URL tidak valid.");
+                    }
+                }
+            }
+            break;
+
             // === IMAGE PROCESSING FEATURES ===
             case "removebg": {
                 if (!quoted || !quoted.mimetype || !quoted.mimetype.startsWith("image/")) {
@@ -2061,11 +2168,72 @@ case "xnxxdownload": {
             // If only one quality available, send directly
             if (buttons.length === 1) {
                 const videoUrl = highQualityUrl || lowQualityUrl;
-                await sock.sendMessage(m.chat, {
-                    video: { url: videoUrl },
-                    caption: caption,
-                    mimetype: 'video/mp4'
-                }, { quoted: m });
+                const quality = highQualityUrl ? 'HIGH' : 'LOW';
+                
+                try {
+                    await sock.sendMessage(m.chat, {
+                        video: { url: videoUrl },
+                        caption: caption,
+                        mimetype: 'video/mp4'
+                    }, { quoted: m });
+                    
+                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                } catch (sendError) {
+                    console.log("Direct send failed, using fallback method...");
+                    // Use the same fallback logic as xnxxdl_send
+                    const encodedUrl = encodeURIComponent(videoUrl);
+                    const fallbackText = `.xnxxdl_send ${encodedUrl} ${quality}`;
+                    
+                    // Simulate the xnxxdl_send command
+                    const fallbackArgs = fallbackText.split(' ');
+                    const [, encodedUrlFallback, qualityFallback] = fallbackArgs;
+                    const videoUrlFallback = decodeURIComponent(encodedUrlFallback);
+                    
+                    try {
+                        // Try proxy method
+                        const proxyUrl = `https://api.gimita.id/api/tools/proxy?url=${encodeURIComponent(videoUrlFallback)}`;
+                        
+                        await sock.sendMessage(m.chat, {
+                            video: { url: proxyUrl },
+                            caption: `🔞 *XNXX VIDEO* (${qualityFallback} Quality)\n\n⚠️ *Adult Content 18+*\n© Powered By ${global.namaOwner}`,
+                            mimetype: 'video/mp4'
+                        }, { quoted: m });
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                    } catch (proxyError) {
+                        // Final fallback: Send interactive link
+                        let msg = generateWAMessageFromContent(m.chat, {
+                            viewOnceMessage: {
+                                message: {
+                                    messageContextInfo: {
+                                        deviceListMetadata: {},
+                                        deviceListMetadataVersion: 2
+                                    },
+                                    interactiveMessage: {
+                                        body: { 
+                                            text: `🔞 *XNXX VIDEO* (${qualityFallback} Quality)\n\n📝 *Video tidak dapat dikirim langsung*\n*Alasan:* SSL Certificate Issue pada server CDN\n\n⚠️ *Adult Content 18+*\n💡 *Cara menonton:*\n1. Klik tombol "Salin Link" di bawah\n2. Buka browser dan paste link\n3. Video akan otomatis diputar\n\n© Powered By ${global.namaOwner}`
+                                        },
+                                        footer: { text: "Klik tombol untuk menyalin link video" },
+                                        nativeFlowMessage: {
+                                            buttons: [
+                                                {
+                                                    name: "cta_copy",
+                                                    buttonParamsJson: JSON.stringify({
+                                                        display_text: "📋 Salin Link Video",
+                                                        copy_code: videoUrlFallback
+                                                    })
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }, { userJid: m.sender, quoted: m });
+
+                        await sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+                        await sock.sendMessage(m.chat, { react: { text: "🔗", key: m.key } });
+                    }
+                }
             } else {
                 // Show quality selection
                 let msg = generateWAMessageFromContent(m.chat, {
@@ -3115,8 +3283,10 @@ break;
                         { cmd: "ytmp4", desc: "Mengunduh video dari YouTube." },
                         { cmd: "ytsearch", desc: "Mencari dan download video/audio YouTube." },
                         { cmd: "spotifysearch", desc: "Mencari dan download lagu Spotify." },
+                        { cmd: "tiktokvideosearch", desc: "Mencari dan download video TikTok." },
                         { cmd: "ytdownload", desc: "Download otomatis audio+video YouTube." },
                         { cmd: "spotdownload", desc: "Download otomatis lagu Spotify." },
+                        { cmd: "tiktokvideodownload", desc: "Download otomatis video TikTok." },
                     ],
                     "Group": [
                         { cmd: "antilink", desc: "Mengaktifkan/menonaktifkan anti-link grup." },
@@ -8744,6 +8914,24 @@ Jangan bilang makasih berlebihan ya!! Bukan karena aku perhatian kok!! >///<`
             testcase
 
 default:
+                // Check for dynamic cases first
+                try {
+                    if (global.caseManager) {
+                        const cases = global.caseManager.listCases();
+                        console.log(`[Dynamic Cases] Checking command '${command}' against cases:`, cases);
+                        if (cases.includes(command)) { // Use command instead of cmd (command is without prefix)
+                            console.log(`[Dynamic Cases] Executing case '${command}' with args:`, text);
+                            const args = text ? text.split(' ') : [];
+                            await global.caseManager.executeCase(command, args, sock, m);
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error executing dynamic case:', error);
+                    m.reply(`❌ Terjadi kesalahan saat menjalankan case '${command}': ${error.message}`);
+                    return;
+                }
+
                 // Handle address management flows
                 try {
                     const userId = m.sender;
