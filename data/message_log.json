@@ -15,6 +15,14 @@
       "orderId": "ORD-24255286",
       "timestamp": "2025-12-07T21:52:57.415Z",
       "attempts": 1
+    },
+    {
+      "id": "1767574800031_g0s9h4040",
+      "jid": "62895602416781@s.whatsapp.net",
+      "type": "address_daily_report",
+      "orderId": null,
+      "timestamp": "2026-01-05T01:00:00.287Z",
+      "attempts": 1
     }
   ],
   "failed": [
