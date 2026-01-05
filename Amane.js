@@ -399,6 +399,104 @@ module.exports = async (m, sock) => {
                         const handled = await global.addressManager.handleButtonResponse(m, sock, id);
                         if (handled) return; // Stop processing if button was handled
                     }
+                    
+                    // Check if it's a viewemail button
+                    if (id && id.startsWith('viewemail_')) {
+                        // Extract the viewemail command and execute it
+                        const viewEmailCommand = id.replace('viewemail_', '');
+                        
+                        // Create a mock message object for the viewemail case
+                        const mockMessage = {
+                            ...m,
+                            body: `.viewemail ${viewEmailCommand}`,
+                            command: 'viewemail',
+                            text: viewEmailCommand
+                        };
+                        
+                        // Execute viewemail case directly
+                        if (!viewEmailCommand) return m.reply("❌ Invalid email view request");
+                        
+                        try {
+                            const parts = viewEmailCommand.split('_');
+                            if (parts.length < 3) return m.reply("❌ Invalid email view format");
+                            
+                            const [source, identifier, emailIndex] = parts;
+                            const index = parseInt(emailIndex);
+                            
+                            await sock.sendMessage(m.chat, { react: { text: "📧", key: m.key } });
+                            
+                            let response, data;
+                            
+                            if (source === 'mailbox') {
+                                // FerDev API
+                                response = await fetch(`https://api.ferdev.my.id/internet/mailbox?id=${encodeURIComponent(identifier)}&apikey=keysita_47JX47JX`);
+                                data = await response.json();
+                                
+                                if (data.success) {
+                                    let emails = [];
+                                    
+                                    if (data.data === null) {
+                                        emails = [];
+                                    } else if (data.data) {
+                                        if (Array.isArray(data.data)) {
+                                            emails = data.data;
+                                        } else if (data.data.emails && Array.isArray(data.data.emails)) {
+                                            emails = data.data.emails;
+                                        } else if (data.data.messages && Array.isArray(data.data.messages)) {
+                                            emails = data.data.messages;
+                                        }
+                                    }
+                                    
+                                    if (emails[index]) {
+                                        const email = emails[index];
+                                        let result = `📧 *EMAIL DETAILS*\n\n`;
+                                        result += `👤 From: ${email.from || email.sender || 'N/A'}\n`;
+                                        result += `📋 Subject: ${email.subject || email.title || (email.subject === '' ? 'No Subject' : 'N/A')}\n`;
+                                        result += `📅 Date: ${email.date || email.timestamp || 'N/A'}\n\n`;
+                                        result += `📝 *Full Content:*\n`;
+                                        result += `${email.text || email.body || email.content || 'No content available'}`;
+                                        
+                                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                                        return m.reply(result);
+                                    } else {
+                                        return m.reply("❌ Email not found at specified index");
+                                    }
+                                } else {
+                                    return m.reply("❌ Failed to fetch email details");
+                                }
+                            } else if (source === 'nekomailbox') {
+                                // NekoLabs API
+                                response = await fetch(`https://api.nekolabs.web.id/tools/tempmail/v2/inbox?email=${encodeURIComponent(identifier)}`);
+                                data = await response.json();
+                                
+                                if (data.success && data.result && Array.isArray(data.result)) {
+                                    const emails = data.result;
+                                    
+                                    if (emails[index]) {
+                                        const email = emails[index];
+                                        let result = `📧 *EMAIL DETAILS*\n\n`;
+                                        result += `👤 From: ${email.from || email.sender || 'N/A'}\n`;
+                                        result += `📋 Subject: ${email.subject || email.title || (email.subject === '' ? 'No Subject' : 'N/A')}\n`;
+                                        result += `📅 Date: ${email.date || email.timestamp || 'N/A'}\n\n`;
+                                        result += `📝 *Full Content:*\n`;
+                                        result += `${email.text || email.body || email.content || 'No content available'}`;
+                                        
+                                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                                        return m.reply(result);
+                                    } else {
+                                        return m.reply("❌ Email not found at specified index");
+                                    }
+                                } else {
+                                    return m.reply("❌ Failed to fetch email details");
+                                }
+                            } else {
+                                return m.reply("❌ Unknown email source");
+                            }
+                        } catch (error) {
+                            console.error("ViewEmail Error:", error);
+                            return m.reply("❌ Error viewing email details");
+                        }
+                    }
                 } catch (error) {
                     console.error('Error handling button response:', error);
                 }
@@ -6426,6 +6524,1870 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
                 } catch (error) {
                     console.error("Send album error:", error);
                     return m.reply("❌ Gagal menampilkan daftar grup");
+                }
+            }
+                break;
+
+            // === NETWORK & SECURITY TOOLS ===
+            case "whois": {
+                if (!text) return m.reply(`Contoh: ${cmd} google.com`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    
+                    const apis = [
+                        {
+                            name: "Gimita.ID",
+                            url: `https://api.gimita.id/api/tools/whois?domain=${encodeURIComponent(text)}`,
+                            headers: {}
+                        },
+                        {
+                            name: "FerDev.my.id", 
+                            url: `https://api.ferdev.my.id/internet/whois?domain=${encodeURIComponent(text)}&apikey=keysita_47JX47JX`,
+                            headers: {}
+                        },
+                        {
+                            name: "SankaVollerei.com",
+                            url: `https://www.sankavollerei.com/tools/whois?apikey=planaai&dns=${encodeURIComponent(text)}`,
+                            headers: {}
+                        }
+                    ];
+                    
+                    let results = [];
+                    let hasValidData = false;
+                    
+                    // Call all APIs simultaneously
+                    const promises = apis.map(async (api) => {
+                        try {
+                            console.log(`[WHOIS] Calling ${api.name} for domain: ${text}`);
+                            const response = await fetch(api.url, { headers: api.headers });
+                            const data = await response.json();
+                            console.log(`[WHOIS] ${api.name} response:`, data);
+                            
+                            // Handle different API response structures
+                            let whoisInfo = null;
+                            let isSuccess = false;
+                            
+                            if (api.name === "Gimita.ID") {
+                                // Gimita.ID has different structure: direct properties, no nested data
+                                if (data.success && data.domainName) {
+                                    whoisInfo = data;
+                                    isSuccess = true;
+                                }
+                            } else if (api.name === "FerDev.my.id") {
+                                // FerDev.my.id has raw WHOIS data in result field
+                                if (data.success && data.data && data.data.result) {
+                                    return {
+                                        source: api.name,
+                                        success: true,
+                                        rawData: data.data.result,
+                                        domain: data.data.domain || text
+                                    };
+                                } else {
+                                    return {
+                                        source: api.name,
+                                        success: false,
+                                        error: data.message || 'No WHOIS data returned'
+                                    };
+                                }
+                            } else if (api.name === "SankaVollerei.com") {
+                                // SankaVollerei uses 'status' instead of 'success'
+                                if (data.status && data.data) {
+                                    whoisInfo = data.data;
+                                    isSuccess = true;
+                                } else {
+                                    return {
+                                        source: api.name,
+                                        success: false,
+                                        error: data.message || 'No data returned'
+                                    };
+                                }
+                            } else {
+                                // Other APIs use data.success && data.data structure
+                                if (data.success && data.data) {
+                                    whoisInfo = data.data;
+                                    isSuccess = true;
+                                }
+                            }
+                            
+                            if (isSuccess && whoisInfo) {
+                                hasValidData = true;
+                                return {
+                                    source: api.name,
+                                    success: true,
+                                    data: {
+                                        registrar: whoisInfo.registrar || whoisInfo.registrar_name || 'N/A',
+                                        created: whoisInfo.creationDate || whoisInfo.creation_date || whoisInfo.created_date || whoisInfo.created || 'N/A',
+                                        updated: whoisInfo.updatedDate || whoisInfo.updated_date || whoisInfo.last_updated || whoisInfo.updated || 'N/A',
+                                        expires: whoisInfo.expirationDate || whoisInfo.expiration_date || whoisInfo.expiry_date || whoisInfo.expires || 'N/A',
+                                        status: Array.isArray(whoisInfo.status) ? whoisInfo.status.join(', ') : (whoisInfo.status || whoisInfo.domain_status || 'N/A'),
+                                        email: whoisInfo.admin_email || whoisInfo.registrant_email || 'N/A',
+                                        organization: whoisInfo.organization || whoisInfo.registrant_organization || whoisInfo.org || whoisInfo.registrant || 'N/A',
+                                        nameServers: Array.isArray(whoisInfo.nameServers) ? whoisInfo.nameServers.join(', ') : (whoisInfo.nameServers || 'N/A'),
+                                        country: whoisInfo.country || 'N/A'
+                                    },
+                                    rawData: whoisInfo.rawData || null
+                                };
+                            } else {
+                                return {
+                                    source: api.name,
+                                    success: false,
+                                    error: data.message || 'No data returned'
+                                };
+                            }
+                        } catch (error) {
+                            console.error(`[WHOIS] ${api.name} error:`, error.message);
+                            return {
+                                source: api.name,
+                                success: false,
+                                error: error.message
+                            };
+                        }
+                    });
+                    
+                    results = await Promise.all(promises);
+                    
+                    if (hasValidData) {
+                        let result = `🔍 *WHOIS INFORMATION*\n🌐 Domain: ${text}\n\n`;
+                        
+                        // Show results from each source
+                        results.forEach((apiResult, index) => {
+                            result += `📊 **Source ${index + 1}: ${apiResult.source}**\n`;
+                            if (apiResult.success) {
+                                result += `✅ Status: Success\n`;
+                                
+                                // For FerDev.my.id, show raw WHOIS data
+                                if (apiResult.rawData && apiResult.source === "FerDev.my.id") {
+                                    result += `� Deomain: ${apiResult.domain}\n`;
+                                    result += `📄 Raw WHOIS Data:\n`;
+                                    result += `${apiResult.rawData}\n`;
+                                } 
+                                // For Gimita.ID, show structured data + raw if available
+                                else if (apiResult.data) {
+                                    result += `🏢 Registrar: ${apiResult.data.registrar}\n`;
+                                    result += `📅 Created: ${apiResult.data.created}\n`;
+                                    result += `📅 Updated: ${apiResult.data.updated}\n`;
+                                    result += `📅 Expires: ${apiResult.data.expires}\n`;
+                                    result += `🌐 Status: ${apiResult.data.status}\n`;
+                                    result += `📧 Email: ${apiResult.data.email}\n`;
+                                    result += `🏢 Organization: ${apiResult.data.organization}\n`;
+                                    result += `🌐 Name Servers: ${apiResult.data.nameServers}\n`;
+                                    result += `🌍 Country: ${apiResult.data.country}\n`;
+                                    
+                                    // Show raw data if available
+                                    if (apiResult.rawData) {
+                                        result += `\n📄 Raw Data Available (truncated for display)\n`;
+                                    }
+                                }
+                            } else {
+                                result += `❌ Status: Failed - ${apiResult.error}\n`;
+                            }
+                            result += `\n`;
+                        });
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        let errorResult = `❌ *WHOIS LOOKUP FAILED*\n🌐 Domain: ${text}\n\n`;
+                        results.forEach((apiResult, index) => {
+                            errorResult += `📊 **${apiResult.source}**: ❌ ${apiResult.error}\n`;
+                        });
+                        return m.reply(errorResult);
+                    }
+                    
+
+                    
+                    if (data.success && data.data) {
+                        const whoisInfo = data.data;
+                        let result = `🔍 *WHOIS INFORMATION*\n\n`;
+                        result += `� Domain: ${text}\n`;
+                        result += `🏢 Registrar: ${whoisInfo.registrar || whoisInfo.registrar_name || 'N/A'}\n`;
+                        result += `📅 Created: ${whoisInfo.creation_date || whoisInfo.created_date || whoisInfo.created || 'N/A'}\n`;
+                        result += `📅 Updated: ${whoisInfo.updated_date || whoisInfo.last_updated || whoisInfo.updated || 'N/A'}\n`;
+                        result += `📅 Expires: ${whoisInfo.expiration_date || whoisInfo.expiry_date || whoisInfo.expires || 'N/A'}\n`;
+                        result += `🌐 Status: ${whoisInfo.status || whoisInfo.domain_status || 'N/A'}\n`;
+                        result += `📧 Admin Email: ${whoisInfo.admin_email || whoisInfo.registrant_email || 'N/A'}\n`;
+                        result += `🏢 Organization: ${whoisInfo.organization || whoisInfo.registrant_organization || whoisInfo.org || 'N/A'}`;
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        console.log(`[WHOIS] All APIs failed for domain: ${text}`);
+                        return m.reply(`❌ Tidak dapat mengambil informasi WHOIS untuk domain ${text}. Semua API gagal.`);
+                    }
+                } catch (error) {
+                    console.error("WHOIS Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat mengambil informasi WHOIS.");
+                }
+            }
+                break;
+
+            case "whois2": {
+                if (!text) return m.reply(`Contoh: ${cmd} google.com`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    
+                    const apis = [
+                        {
+                            name: "FerDev.my.id (Raw)",
+                            url: `https://api.ferdev.my.id/internet/whois?domain=${encodeURIComponent(text)}&apikey=keysita_47JX47JX`,
+                            headers: {}
+                        },
+                        {
+                            name: "Gimita.ID (Raw)",
+                            url: `https://api.gimita.id/api/tools/whois?domain=${encodeURIComponent(text)}`,
+                            headers: {}
+                        }
+                    ];
+                    
+                    let results = [];
+                    let hasValidData = false;
+                    
+                    // Call all APIs simultaneously
+                    const promises = apis.map(async (api) => {
+                        try {
+                            console.log(`[RAWWHOIS] Calling ${api.name} for domain: ${text}`);
+                            const response = await fetch(api.url, { headers: api.headers });
+                            const data = await response.json();
+                            console.log(`[RAWWHOIS] ${api.name} response:`, data);
+                            
+                            if (api.name.includes("FerDev") && data.success && data.data && data.data.result) {
+                                hasValidData = true;
+                                return {
+                                    source: api.name,
+                                    success: true,
+                                    rawData: data.data.result,
+                                    domain: data.data.domain || text
+                                };
+                            } else if (api.name.includes("Gimita") && data.success && data.rawData) {
+                                hasValidData = true;
+                                return {
+                                    source: api.name,
+                                    success: true,
+                                    rawData: data.rawData,
+                                    domain: data.domainName || text
+                                };
+                            } else {
+                                return {
+                                    source: api.name,
+                                    success: false,
+                                    error: data.message || 'No raw WHOIS data available'
+                                };
+                            }
+                        } catch (error) {
+                            console.error(`[RAWWHOIS] ${api.name} error:`, error.message);
+                            return {
+                                source: api.name,
+                                success: false,
+                                error: error.message
+                            };
+                        }
+                    });
+                    
+                    results = await Promise.all(promises);
+                    
+                    if (hasValidData) {
+                        let result = `📄 *RAW WHOIS DATA*\n🌐 Domain: ${text}\n\n`;
+                        
+                        // Show raw results from each source
+                        results.forEach((apiResult, index) => {
+                            result += `📊 **Source ${index + 1}: ${apiResult.source}**\n`;
+                            if (apiResult.success) {
+                                result += `✅ Status: Success\n`;
+                                result += `📋 Domain: ${apiResult.domain}\n\n`;
+                                result += `📄 Raw WHOIS Data:\n`;
+                                result += `${apiResult.rawData}\n\n`;
+                            } else {
+                                result += `❌ Status: Failed - ${apiResult.error}\n\n`;
+                            }
+                        });
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        let errorResult = `❌ *RAW WHOIS LOOKUP FAILED*\n🌐 Domain: ${text}\n\n`;
+                        results.forEach((apiResult, index) => {
+                            errorResult += `📊 **${apiResult.source}**: ❌ ${apiResult.error}\n`;
+                        });
+                        return m.reply(errorResult);
+                    }
+                } catch (error) {
+                    console.error("Raw WHOIS Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat mengambil raw WHOIS data.");
+                }
+            }
+                break;
+
+            case "dns": 
+            case "dnslookup": {
+                if (!text) return m.reply(`Contoh: ${cmd} google.com`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    
+                    const apis = [
+                        {
+                            name: "Gimita.ID",
+                            url: `https://api.gimita.id/api/tools/dns?domain=${encodeURIComponent(text)}`,
+                            headers: {}
+                        },
+                        {
+                            name: "FerDev.my.id",
+                            url: `https://api.ferdev.my.id/internet/cekhost?domain=${encodeURIComponent(text)}&apikey=keysita_47JX47JX`,
+                            headers: {}
+                        }
+                    ];
+                    
+                    let results = [];
+                    let hasValidData = false;
+                    
+                    // Call all APIs simultaneously
+                    const promises = apis.map(async (api) => {
+                        try {
+                            console.log(`[DNS] Calling ${api.name} for domain: ${text}`);
+                            const response = await fetch(api.url, { headers: api.headers });
+                            const data = await response.json();
+                            console.log(`[DNS] ${api.name} response:`, data);
+                            
+                            // Handle different API response structures
+                            let dnsInfo = null;
+                            let isSuccess = false;
+                            
+                            if (api.name === "Gimita.ID") {
+                                // Gimita.ID has direct properties, no nested data
+                                if (data.success && (data.a || data.aaaa || data.mx || data.ns || data.txt)) {
+                                    dnsInfo = data;
+                                    isSuccess = true;
+                                }
+                            } else if (api.name === "FerDev.my.id") {
+                                // FerDev.my.id uses different structure - it's actually IP info, not DNS
+                                // But we can extract some DNS-like info from it
+                                if (data.data && data.data['IP address']) {
+                                    dnsInfo = {
+                                        A: [data.data['IP address']],
+                                        hostname: data.data['Host name']
+                                    };
+                                    isSuccess = true;
+                                }
+                            } else {
+                                // Standard APIs use data.success && data.data structure
+                                if (data.success && data.data) {
+                                    dnsInfo = data.data;
+                                    isSuccess = true;
+                                }
+                            }
+                            
+                            if (isSuccess && dnsInfo) {
+                                hasValidData = true;
+                                return {
+                                    source: api.name,
+                                    success: true,
+                                    data: {
+                                        A: dnsInfo.a || dnsInfo.A || (dnsInfo.A ? [dnsInfo.A] : []) || 'N/A',
+                                        AAAA: dnsInfo.aaaa || dnsInfo.AAAA || 'N/A',
+                                        CNAME: dnsInfo.cname || dnsInfo.CNAME || 'N/A',
+                                        MX: dnsInfo.mx || dnsInfo.MX || 'N/A',
+                                        NS: dnsInfo.ns || dnsInfo.NS || 'N/A',
+                                        TXT: dnsInfo.txt || dnsInfo.TXT || 'N/A',
+                                        hostname: dnsInfo.hostname || 'N/A'
+                                    }
+                                };
+                            } else {
+                                return {
+                                    source: api.name,
+                                    success: false,
+                                    error: data.message || 'No DNS data returned'
+                                };
+                            }
+                        } catch (error) {
+                            console.error(`[DNS] ${api.name} error:`, error.message);
+                            return {
+                                source: api.name,
+                                success: false,
+                                error: error.message
+                            };
+                        }
+                    });
+                    
+                    results = await Promise.all(promises);
+                    
+                    if (hasValidData) {
+                        let result = `🌐 *DNS LOOKUP RESULTS*\n📋 Domain: ${text}\n\n`;
+                        
+                        // Show results from each source
+                        results.forEach((apiResult, index) => {
+                            result += `📊 **Source ${index + 1}: ${apiResult.source}**\n`;
+                            if (apiResult.success) {
+                                result += `✅ Status: Success\n`;
+                                if (apiResult.data.A !== 'N/A') result += `🔹 A Records: ${Array.isArray(apiResult.data.A) ? apiResult.data.A.join(', ') : apiResult.data.A}\n`;
+                                if (apiResult.data.AAAA !== 'N/A') result += `🔹 AAAA Records: ${Array.isArray(apiResult.data.AAAA) ? apiResult.data.AAAA.join(', ') : apiResult.data.AAAA}\n`;
+                                if (apiResult.data.CNAME !== 'N/A') result += `🔹 CNAME Records: ${Array.isArray(apiResult.data.CNAME) ? apiResult.data.CNAME.join(', ') : apiResult.data.CNAME}\n`;
+                                if (apiResult.data.MX !== 'N/A') {
+                                    if (Array.isArray(apiResult.data.MX)) {
+                                        const mxRecords = apiResult.data.MX.map(mx => typeof mx === 'object' ? `${mx.host} (${mx.priority})` : mx).join(', ');
+                                        result += `🔹 MX Records: ${mxRecords}\n`;
+                                    } else {
+                                        result += `🔹 MX Records: ${apiResult.data.MX}\n`;
+                                    }
+                                }
+                                if (apiResult.data.NS !== 'N/A') result += `🔹 NS Records: ${Array.isArray(apiResult.data.NS) ? apiResult.data.NS.join(', ') : apiResult.data.NS}\n`;
+                              if (apiResult.data.TXT !== 'N/A') {
+                                if (Array.isArray(apiResult.data.TXT)) {
+                                    result += `🔹 TXT Records: ${apiResult.data.TXT.length} records\n`;
+                                    apiResult.data.TXT.forEach((txt, idx) => {
+                                        result += `   ${idx + 1}. ${txt}\n`;
+                                    });
+                                } else {
+                                    result += `🔹 TXT Records: ${apiResult.data.TXT}\n`;
+                                }
+                            }
+
+                            if (apiResult.data.hostname !== 'N/A') {
+                                result += `🔹 Hostname: ${apiResult.data.hostname}\n`;
+                            }
+} else {
+                                result += `❌ Status: Failed - ${apiResult.error}\n`;
+                            }
+                            result += `\n`;
+                        });
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        let errorResult = `❌ *DNS LOOKUP FAILED*\n📋 Domain: ${text}\n\n`;
+                        results.forEach((apiResult, index) => {
+                            errorResult += `📊 **${apiResult.source}**: ❌ ${apiResult.error}\n`;
+                        });
+                        return m.reply(errorResult);
+                    }
+                } catch (error) {
+                    console.error("DNS Lookup Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat melakukan DNS lookup.");
+                }
+            }
+                break;
+
+            case "portscan": {
+                if (!text) return m.reply(`Contoh: ${cmd} 103.247.8.80 atau ${cmd} 103.247.8.80 1-1000`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    
+                    const [host, portRange = "1-1000"] = text.split(" ");
+                    
+                    const apis = [
+                        {
+                            name: "Gimita.ID",
+                            url: `https://api.gimita.id/api/tools/portscan?host=${encodeURIComponent(host)}&ports=${encodeURIComponent(portRange)}&scan_type=full`,
+                            headers: {}
+                        }
+                    ];
+                    
+                    let results = [];
+                    let hasValidData = false;
+                    
+                    // Call all APIs simultaneously
+                    const promises = apis.map(async (api) => {
+                        try {
+                            console.log(`[PORTSCAN] Calling ${api.name} for host: ${host}, ports: ${portRange}`);
+                            const response = await fetch(api.url, { headers: api.headers });
+                            const data = await response.json();
+                            console.log(`[PORTSCAN] ${api.name} response:`, data);
+                            
+                            if (data.success && data.data) {
+                                hasValidData = true;
+                                const scanResults = data.data;
+                                return {
+                                    source: api.name,
+                                    success: true,
+                                    data: {
+                                        open_ports: scanResults.open_ports || [],
+                                        closed_ports: scanResults.closed_ports || 0,
+                                        total_scanned: scanResults.total_scanned || 0
+                                    },
+                                    rawData: JSON.stringify(data, null, 2)
+                                };
+                            } else {
+                                return {
+                                    source: api.name,
+                                    success: false,
+                                    error: data.message || 'No scan data returned',
+                                    rawData: JSON.stringify(data, null, 2)
+                                };
+                            }
+                        } catch (error) {
+                            console.error(`[PORTSCAN] ${api.name} error:`, error.message);
+                            return {
+                                source: api.name,
+                                success: false,
+                                error: error.message
+                            };
+                        }
+                    });
+                    
+                    results = await Promise.all(promises);
+                    
+                    if (hasValidData) {
+                        let result = `🔍 *PORT SCAN RESULTS*\n🎯 Target: ${host}\n📊 Port Range: ${portRange}\n\n`;
+                        
+                        // Show results from each source
+                        results.forEach((apiResult, index) => {
+                            result += `📊 **Source ${index + 1}: ${apiResult.source}**\n`;
+                            if (apiResult.success) {
+                                result += `✅ Status: Success\n`;
+                                result += `📊 Total Scanned: ${apiResult.data.total_scanned}\n`;
+                                result += `📊 Closed Ports: ${apiResult.data.closed_ports}\n`;
+                                
+                                if (apiResult.data.open_ports && apiResult.data.open_ports.length > 0) {
+                                    result += `✅ Open Ports (${apiResult.data.open_ports.length}):\n`;
+                                    apiResult.data.open_ports.forEach(port => {
+                                        result += `🔹 Port ${port.port}: ${port.service || 'Unknown'} (${port.state || 'open'})\n`;
+                                    });
+                                } else {
+                                    result += `❌ No open ports found\n`;
+                                }
+                                
+                                // Show raw data for debugging
+                                result += `\n📄 Raw Response:\n\`\`\`json\n${apiResult.rawData}\n\`\`\`\n`;
+                            } else {
+                                result += `❌ Status: Failed - ${apiResult.error}\n`;
+                                if (apiResult.rawData) {
+                                    result += `📄 Raw Response:\n\`\`\`json\n${apiResult.rawData}\n\`\`\`\n`;
+                                }
+                            }
+                            result += `\n`;
+                        });
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        let errorResult = `❌ *PORT SCAN FAILED*\n🎯 Target: ${host}\n📊 Port Range: ${portRange}\n\n`;
+                        results.forEach((apiResult, index) => {
+                            errorResult += `📊 **${apiResult.source}**: ❌ ${apiResult.error}\n`;
+                            if (apiResult.rawData) {
+                                errorResult += `📄 Raw Response:\n\`\`\`json\n${apiResult.rawData}\n\`\`\`\n`;
+                            }
+                        });
+                        return m.reply(errorResult);
+                    }
+                } catch (error) {
+                    console.error("Port Scan Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat melakukan port scan.");
+                }
+            }
+                break;
+
+            case "ipinfo":
+            case "iplookup": {
+                if (!text) return m.reply(`Contoh: ${cmd} 103.247.8.80`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    
+                    // Primary: ferdev.my.id
+                    let response = await fetch(`https://api.ferdev.my.id/internet/infoip?ip=${encodeURIComponent(text)}&apikey=keysita_47JX47JX`);
+                    let data = await response.json();
+                    
+                    if (!data.success) {
+                        // Fallback 1: sankavollerei.com iplookup
+                        response = await fetch(`https://www.sankavollerei.com/tools/iplookup?apikey=planaai&q=${encodeURIComponent(text)}`);
+                        data = await response.json();
+                        
+                        if (!data.success) {
+                            // Fallback 2: sankavollerei.com trackip
+                            response = await fetch(`https://www.sankavollerei.com/tools/trackip?apikey=planaai&ip=${encodeURIComponent(text)}`);
+                            data = await response.json();
+                        }
+                    }
+                    
+                    if (data.success && data.data) {
+                        const ipInfo = data.data;
+                        let result = `🌐 *IP INFORMATION*\n\n`;
+                        result += `📍 IP Address: ${text}\n`;
+                        result += `🏢 ISP: ${ipInfo.isp || ipInfo.org || 'N/A'}\n`;
+                        result += `🌍 Country: ${ipInfo.country || 'N/A'}\n`;
+                        result += `🏙️ City: ${ipInfo.city || 'N/A'}\n`;
+                        result += `📍 Region: ${ipInfo.region || ipInfo.regionName || 'N/A'}\n`;
+                        result += `📮 Postal Code: ${ipInfo.zip || ipInfo.postal || 'N/A'}\n`;
+                        result += `🌐 Timezone: ${ipInfo.timezone || 'N/A'}\n`;
+                        result += `📍 Coordinates: ${ipInfo.lat || 'N/A'}, ${ipInfo.lon || 'N/A'}\n`;
+                        result += `🏢 AS: ${ipInfo.as || 'N/A'}`;
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        return m.reply("❌ Tidak dapat mengambil informasi IP tersebut.");
+                    }
+                } catch (error) {
+                    console.error("IP Info Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat mengambil informasi IP.");
+                }
+            }
+                break;
+
+            case "subdomain":
+            case "subdo": {
+                if (!text) return m.reply(`Contoh: ${cmd} google.com`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    
+                    const apis = [
+                        {
+                            name: "NekoLabs.web.id",
+                            url: `https://api.nekolabs.web.id/tools/finder/subdomain-finder?domain=${encodeURIComponent(text)}`,
+                            headers: {}
+                        },
+                        {
+                            name: "SankaVollerei.com",
+                            url: `https://www.sankavollerei.com/tools/subdo?apikey=planaai&url=${encodeURIComponent(text)}`,
+                            headers: {}
+                        }
+                    ];
+                    
+                    let results = [];
+                    let hasValidData = false;
+                    
+                    // Call all APIs simultaneously
+                    const promises = apis.map(async (api) => {
+                        try {
+                            console.log(`[SUBDOMAIN] Calling ${api.name} for domain: ${text}`);
+                            const response = await fetch(api.url, { headers: api.headers });
+                            const data = await response.json();
+                            console.log(`[SUBDOMAIN] ${api.name} response:`, data);
+                            
+                            if (data.success && data.data && data.data.length > 0) {
+                                hasValidData = true;
+                                return {
+                                    source: api.name,
+                                    success: true,
+                                    data: {
+                                        subdomains: data.data,
+                                        count: data.data.length
+                                    }
+                                };
+                            } else {
+                                return {
+                                    source: api.name,
+                                    success: false,
+                                    error: data.message || 'No subdomains found'
+                                };
+                            }
+                        } catch (error) {
+                            console.error(`[SUBDOMAIN] ${api.name} error:`, error.message);
+                            return {
+                                source: api.name,
+                                success: false,
+                                error: error.message
+                            };
+                        }
+                    });
+                    
+                    results = await Promise.all(promises);
+                    
+                    if (hasValidData) {
+                        let result = `🔍 *SUBDOMAIN SCANNER RESULTS*\n🎯 Target: ${text}\n\n`;
+                        
+                        // Show results from each source
+                        results.forEach((apiResult, index) => {
+                            result += `📊 **Source ${index + 1}: ${apiResult.source}**\n`;
+                            if (apiResult.success) {
+                                result += `✅ Status: Success\n`;
+                                result += `📊 Found: ${apiResult.data.count} subdomains\n`;
+                                result += `🔹 Subdomains (first 10):\n`;
+                                apiResult.data.subdomains.slice(0, 10).forEach((subdomain, idx) => {
+                                    result += `   ${idx + 1}. ${subdomain}\n`;
+                                });
+                                if (apiResult.data.count > 10) {
+                                    result += `   ... and ${apiResult.data.count - 10} more\n`;
+                                }
+                            } else {
+                                result += `❌ Status: Failed - ${apiResult.error}\n`;
+                            }
+                            result += `\n`;
+                        });
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        let errorResult = `❌ *SUBDOMAIN SCAN FAILED*\n🎯 Target: ${text}\n\n`;
+                        results.forEach((apiResult, index) => {
+                            errorResult += `📊 **${apiResult.source}**: ❌ ${apiResult.error}\n`;
+                        });
+                        return m.reply(errorResult);
+                    }
+                } catch (error) {
+                    console.error("Subdomain Scanner Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat melakukan subdomain scan.");
+                }
+            }
+                break;
+
+            case "phonecheck":
+            case "ceknomor": {
+                if (!text) return m.reply(`Contoh: ${cmd} 62895602416781`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    
+                    const apis = [
+                        {
+                            name: " SankaVollerei.com (cek-nomor) ",
+                            url: `https://www.sankavollerei.com/random/cek-nomor?apikey=planaai&nomor=${encodeURIComponent(text)}`,
+                            headers: {}
+                        },
+                        {
+                            name: "mSankaVollerei.com (cek-nomorinter) ",
+                            url: `https://www.sankavollerei.com/random/cek-nomorinter?apikey=planaai&nomor=${encodeURIComponent(text)}`,
+                            headers: {}
+                        }
+                    ];
+                    
+                    let results = [];
+                    let hasValidData = false;
+                    
+                    // Call all APIs simultaneously
+                    const promises = apis.map(async (api) => {
+                        try {
+                            console.log(`[PHONECHECK] Calling ${api.name} for number: ${text}`);
+                            const response = await fetch(api.url, { headers: api.headers });
+                            const data = await response.json();
+                            console.log(`[PHONECHECK] ${api.name} response:`, data);
+                            
+                            // Handle different API response structures
+                            let phoneInfo = null;
+                            let isSuccess = false;
+                            
+                            if (api.name === " SankaVollerei.com (cek-nomor) ") {
+                                if (data.status && data.data) {
+                                    hasValidData = true;
+                                    return {
+                                        source: api.name,
+                                        success: true,
+                                        rawData: JSON.stringify(data, null, 2)
+                                    };
+                                } else {
+                                    return {
+                                        source: api.name,
+                                        success: false,
+                                        error: data.message || 'No data returned',
+                                        rawData: JSON.stringify(data, null, 2)
+                                    };
+                                }
+                            }
+
+                            if (api.name === " SankaVollerei.com (cek-nomorinter) ") {
+                                if (data.status && data.result) {
+                                    hasValidData = true;
+                                    return {
+                                        source: api.name,
+                                        success: true,
+                                        rawData: JSON.stringify(data, null, 2)
+                                    };
+                                } else {
+                                    return {
+                                        source: api.name,
+                                        success: false,
+                                        error: data.message || 'No data returned',
+                                        rawData: JSON.stringify(data, null, 2)
+                                    };
+                                }
+                            } else {
+                                // Standard APIs use data.success && data.data structure
+                                if (data.success && data.data) {
+                                    phoneInfo = data.data;
+                                    isSuccess = true;
+                                } else {
+                                    return {
+                                        source: api.name,
+                                        success: false,
+                                        error: data.message || 'No data returned',
+                                        rawData: JSON.stringify(data, null, 2)
+                                    };
+                                }
+                            }
+                            
+                            if (isSuccess && phoneInfo) {
+                                hasValidData = true;
+                                return {
+                                    source: api.name,
+                                    success: true,
+                                    data: {
+                                        operator: phoneInfo.operator || phoneInfo.provider || 'N/A',
+                                        country: phoneInfo.country || 'N/A',
+                                        region: phoneInfo.region || 'N/A',
+                                        type: phoneInfo.type || 'N/A',
+                                        valid: phoneInfo.valid ? 'Yes' : 'No',
+                                        status: phoneInfo.status || 'N/A'
+                                    },
+                                    rawData: JSON.stringify(data, null, 2)
+                                };
+                            }
+                        } catch (error) {
+                            console.error(`[PHONECHECK] ${api.name} error:`, error.message);
+                            return {
+                                source: api.name,
+                                success: false,
+                                error: error.message
+                            };
+                        }
+                    });
+                    
+                    results = await Promise.all(promises);
+                    
+                    if (hasValidData) {
+                        let result = `📱 *PHONE NUMBER INFO*\n📞 Number: ${text}\n\n`;
+                        
+                        // Show results from each source
+                        results.forEach((apiResult, index) => {
+                            result += `📊 **Source ${index + 1}: ${apiResult.source}**\n`;
+                            if (apiResult.success) {
+                                result += `✅ Status: Success\n`;
+                                result += `📄 Raw JSON Response:\n`;
+                                result += `\`\`\`json\n${apiResult.rawData}\n\`\`\`\n`;
+                            } else {
+                                result += `❌ Status: Failed - ${apiResult.error}\n`;
+                                if (apiResult.rawData) {
+                                    result += `�t Raw JSON Response:\n`;
+                                    result += `\`\`\`json\n${apiResult.rawData}\n\`\`\`\n`;
+                                }
+                            }
+                            result += `\n`;
+                        });
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        let errorResult = `❌ *PHONE CHECK FAILED*\n📞 Number: ${text}\n\n`;
+                        results.forEach((apiResult, index) => {
+                            errorResult += `📊 **${apiResult.source}**: ❌ ${apiResult.error}\n`;
+                        });
+                        return m.reply(errorResult);
+                    }
+                } catch (error) {
+                    console.error("Phone Check Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat mengecek nomor telepon.");
+                }
+            }
+                break;
+
+            case "cekno": {
+                if (!text) return m.reply(`Contoh: ${cmd} 62895602416781`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    
+                    const apis = [
+                        {
+                            name: "SankaVollerei.com (cek-nomor)",
+                            url: `https://www.sankavollerei.com/random/cek-nomor?apikey=planaai&nomor=${encodeURIComponent(text)}`
+                        },
+                        {
+                            name: "SankaVollerei.com (cek-nomorinter)",
+                            url: `https://www.sankavollerei.com/random/cek-nomorinter?apikey=planaai&nomor=${encodeURIComponent(text)}`
+                        }
+                    ];
+                    
+                    let result = `📱 *RAW PHONE CHECK*\n📞 Number: ${text}\n\n`;
+                    
+                    for (const api of apis) {
+                        try {
+                            console.log(`[RAWPHONE] Calling ${api.name} for number: ${text}`);
+                            const response = await fetch(api.url);
+                            const data = await response.json();
+                            console.log(`[RAWPHONE] ${api.name} response:`, data);
+                            
+                            result += `📊 **${api.name}**\n`;
+                            result += `📄 Raw JSON Response:\n`;
+                            result += `\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\`\n\n`;
+                        } catch (error) {
+                            result += `📊 **${api.name}**\n`;
+                            result += `❌ Error: ${error.message}\n\n`;
+                        }
+                    }
+                    
+                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                    return m.reply(result);
+                } catch (error) {
+                    console.error("Raw Phone Check Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat mengecek nomor telepon.");
+                }
+            }
+                break;
+
+            case "kodepos":
+            case "cekkodepos": {
+                if (!text) return m.reply(`Contoh: ${cmd} 17121`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    
+                    const response = await fetch(`https://www.sankavollerei.com/tools/cekkodepos?apikey=planaai&q=${encodeURIComponent(text)}`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.data) {
+                        const postalInfo = data.data;
+                        let result = `📮 *POSTAL CODE INFO*\n\n`;
+                        result += `📮 Kode Pos: ${text}\n`;
+                        result += `🏙️ Kelurahan: ${postalInfo.kelurahan || 'N/A'}\n`;
+                        result += `🏘️ Kecamatan: ${postalInfo.kecamatan || 'N/A'}\n`;
+                        result += `🏢 Kabupaten: ${postalInfo.kabupaten || 'N/A'}\n`;
+                        result += `🌍 Provinsi: ${postalInfo.provinsi || 'N/A'}`;
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        return m.reply("❌ Tidak dapat menemukan informasi kode pos tersebut.");
+                    }
+                } catch (error) {
+                    console.error("Postal Code Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat mengecek kode pos.");
+                }
+            }
+                break;
+
+            case "nikcheck":
+            case "ceknik": {
+                if (!text) return m.reply(`Contoh: ${cmd} 3216023240040004`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    
+                    const response = await fetch(`https://www.sankavollerei.com/stalk/nik?apikey=planaai&nik=${encodeURIComponent(text)}`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.data) {
+                        const nikInfo = data.data;
+                        let result = `🆔 *NIK INFORMATION*\n\n`;
+                        result += `🆔 NIK: ${text}\n`;
+                        result += `🏢 Provinsi: ${nikInfo.provinsi || 'N/A'}\n`;
+                        result += `🏙️ Kabupaten/Kota: ${nikInfo.kabupaten || 'N/A'}\n`;
+                        result += `🏘️ Kecamatan: ${nikInfo.kecamatan || 'N/A'}\n`;
+                        result += `📅 Tanggal Lahir: ${nikInfo.tanggal_lahir || 'N/A'}\n`;
+                        result += `👤 Jenis Kelamin: ${nikInfo.jenis_kelamin || 'N/A'}\n`;
+                        result += `✅ Valid: ${nikInfo.valid ? 'Yes' : 'No'}`;
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        return m.reply("❌ NIK tidak valid atau tidak ditemukan.");
+                    }
+                } catch (error) {
+                    console.error("NIK Check Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat mengecek NIK.");
+                }
+            }
+                break;
+
+            case "tempmail": {
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "📧", key: m.key } });
+                    
+                    const apis = [
+                        {
+                            name: "NekoLabs.web.id",
+                            url: `https://api.nekolabs.web.id/tools/tempmail/v2/create`,
+                            headers: {}
+                        },
+                        {
+                            name: "FerDev.my.id",
+                            url: `https://api.ferdev.my.id/internet/tempmail?apikey=keysita_47JX47JX`,
+                            headers: {}
+                        }
+                    ];
+                    
+                    let results = [];
+                    let hasValidData = false;
+                    
+                    // Call all APIs simultaneously
+                    const promises = apis.map(async (api) => {
+                        try {
+                            console.log(`[TEMPMAIL] Calling ${api.name}`);
+                            const response = await fetch(api.url, { headers: api.headers });
+                            const data = await response.json();
+                            console.log(`[TEMPMAIL] ${api.name} response:`, data);
+                            
+                            // Handle different API response structures
+                            if (api.name === "NekoLabs.web.id") {
+                                // NekoLabs uses 'result' field, not 'data'
+                                if (data.success && data.result && data.result.email) {
+                                    hasValidData = true;
+                                    return {
+                                        source: api.name,
+                                        success: true,
+                                        data: {
+                                            email: data.result.email,
+                                            id: 'Use email for inbox',
+                                            created: new Date().toLocaleString()
+                                        }
+                                    };
+                                } else {
+                                    return {
+                                        source: api.name,
+                                        success: false,
+                                        error: data.message || 'No email data returned'
+                                    };
+                                }
+                            } else if (api.name === "FerDev.my.id") {
+                                // FerDev has addresses array in data
+                                if (data.success && data.data && data.data.addresses && data.data.addresses.length > 0) {
+                                    hasValidData = true;
+                                    const address = data.data.addresses[0];
+                                    return {
+                                        source: api.name,
+                                        success: true,
+                                        data: {
+                                            email: address.address || address.email,
+                                            id: data.data.id,
+                                            created: new Date().toLocaleString(),
+                                            expiresAt: data.data.expiresAt
+                                        }
+                                    };
+                                } else {
+                                    return {
+                                        source: api.name,
+                                        success: false,
+                                        error: data.message || 'No email data returned'
+                                    };
+                                }
+                            } else {
+                                // Standard APIs
+                                if (data.success && data.data) {
+                                    hasValidData = true;
+                                    const mailInfo = data.data;
+                                    return {
+                                        source: api.name,
+                                        success: true,
+                                        data: {
+                                            email: mailInfo.email,
+                                            id: mailInfo.id || 'Use email for inbox',
+                                            created: new Date().toLocaleString()
+                                        }
+                                    };
+                                } else {
+                                    return {
+                                        source: api.name,
+                                        success: false,
+                                        error: data.message || 'No data returned'
+                                    };
+                                }
+                            }
+                        } catch (error) {
+                            console.error(`[TEMPMAIL] ${api.name} error:`, error.message);
+                            return {
+                                source: api.name,
+                                success: false,
+                                error: error.message
+                            };
+                        }
+                    });
+                    
+                    results = await Promise.all(promises);
+                    
+                    // Ensure results is always an array
+                    if (!Array.isArray(results)) {
+                        results = [];
+                    }
+                    
+                    if (hasValidData) {
+                        let result = `📧 *TEMPORARY EMAIL CREATED*\n\n`;
+                        
+                        // Show results from each source
+                        if (Array.isArray(results) && results.length > 0) {
+                            results.forEach((apiResult, index) => {
+                                result += `📊 **Source ${index + 1}: ${apiResult.source}**\n`;
+                                if (apiResult.success) {
+                                    result += `✅ Status: Success\n`;
+                                    result += `📧 Email: ${apiResult.data.email}\n`;
+                                    result += `📋 Copy Email: Tap & hold email address above to copy\n`;
+                                    result += `🆔 ID: ${apiResult.data.id}\n`;
+                                    result += `⏰ Created: ${apiResult.data.created}\n`;
+                                    if (apiResult.data.expiresAt) {
+                                        result += `⏳ Expires: ${apiResult.data.expiresAt}\n`;
+                                    }
+                                    if (apiResult.data.id !== 'Use email for inbox') {
+                                        result += `💡 Use: .mailbox ${apiResult.data.id}\n`;
+                                    } else {
+                                        result += `💡 Use: .nekomailbox ${apiResult.data.email}\n`;
+                                    }
+                                } else {
+                                    result += `❌ Status: Failed - ${apiResult.error}\n`;
+                                }
+                                result += `\n`;
+                            });
+                        }
+                        
+                        // Add quick reply buttons for successful emails
+                        const successfulEmails = Array.isArray(results) ? results.filter(r => r.success) : [];
+                        if (successfulEmails.length > 0) {
+                            let buttons = [];
+                            
+                            successfulEmails.forEach((emailResult, index) => {
+                                // Add copy email button
+                                buttons.push({
+                                    name: "cta_copy",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: `📋 Copy ${emailResult.source} Email`,
+                                        copy_code: emailResult.data.email
+                                    })
+                                });
+                                
+                                if (emailResult.data.id !== 'Use email for inbox') {
+                                    // FerDev.my.id mailbox
+                                    buttons.push({
+                                        name: "quick_reply",
+                                        buttonParamsJson: JSON.stringify({
+                                            display_text: `📧 Check ${emailResult.source} Inbox`,
+                                            id: `.mailbox ${emailResult.data.id}`
+                                        })
+                                    });
+                                } else {
+                                    // NekoLabs mailbox
+                                    buttons.push({
+                                        name: "quick_reply", 
+                                        buttonParamsJson: JSON.stringify({
+                                            display_text: `📧 Check ${emailResult.source} Inbox`,
+                                            id: `.nekomailbox ${emailResult.data.email}`
+                                        })
+                                    });
+                                }
+                            });
+                            
+                            if (buttons.length > 0) {
+                                let msg = generateWAMessageFromContent(m.chat, {
+                                    viewOnceMessage: {
+                                        message: {
+                                            messageContextInfo: {
+                                                deviceListMetadata: {},
+                                                deviceListMetadataVersion: 2
+                                            },
+                                            interactiveMessage: {
+                                                body: { text: result },
+                                                footer: { text: "📋 Klik tombol Copy untuk menyalin email • 📧 Klik Check Inbox untuk cek pesan masuk" },
+                                                nativeFlowMessage: {
+                                                    buttons: buttons
+                                                }
+                                            }
+                                        }
+                                    }
+                                }, { userJid: m.sender, quoted: m });
+                                
+                                await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                                return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+                            }
+                        }
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        let errorResult = `❌ *TEMPMAIL CREATION FAILED*\n\n`;
+                        if (Array.isArray(results) && results.length > 0) {
+                            results.forEach((apiResult, index) => {
+                                errorResult += `📊 **${apiResult.source}**: ❌ ${apiResult.error}\n`;
+                            });
+                        } else {
+                            errorResult += `📊 No API responses received\n`;
+                        }
+                        return m.reply(errorResult);
+                    }
+                } catch (error) {
+                    console.error("Temp Mail Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat membuat temporary email.");
+                }
+            }
+                break;
+
+            case "mailbox": {
+                if (!text) return m.reply(`Contoh: ${cmd} U2Vzc2lvbjo0YFzo8v5FTLybU1xr9hOF`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "📧", key: m.key } });
+                    
+                    const response = await fetch(`https://api.ferdev.my.id/internet/mailbox?id=${encodeURIComponent(text)}&apikey=keysita_47JX47JX`);
+                    const data = await response.json();
+                    
+                    console.log(`[MAILBOX] Response for ${text}:`, data);
+                    
+                    if (data.success) {
+                        let emails = [];
+                        
+                        if (data.data === null) {
+                            // API returns null when inbox is empty - this is normal
+                            emails = [];
+                        } else if (data.data) {
+                            // Better array validation
+                            if (Array.isArray(data.data)) {
+                                emails = data.data;
+                            } else if (data.data.emails && Array.isArray(data.data.emails)) {
+                                emails = data.data.emails;
+                            } else if (data.data.messages && Array.isArray(data.data.messages)) {
+                                emails = data.data.messages;
+                            } else {
+                                // If data structure is unexpected, show debug info
+                                let result = `❌ *MAILBOX STRUCTURE ERROR*\n\n`;
+                                result += `📧 ID: ${text}\n\n`;
+                                result += `📄 Raw API Response:\n`;
+                                result += `\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+                                return m.reply(result);
+                            }
+                        } else {
+                            // No data field at all
+                            emails = [];
+                        }
+                        
+                        let result = `📧 *MAILBOX INBOX*\n\n`;
+                        result += `📧 ID: ${text}\n`;
+                        result += `📊 Total Emails: ${emails.length}\n\n`;
+                        
+                        if (emails.length === 0) {
+                            result += `📭 No emails found in inbox.`;
+                            
+                        } else {
+                            // Ensure emails is actually an array before forEach
+                            if (Array.isArray(emails)) {
+                                emails.slice(0, 5).forEach((email, index) => {
+                                    result += `📧 Email ${index + 1}:\n`;
+                                    result += `👤 From: ${email.from || email.sender || 'N/A'}\n`;
+                                    result += `📋 Subject: ${email.subject || email.title || (email.subject === '' ? 'No Subject' : 'N/A')}\n`;
+                                    result += `📅 Date: ${email.date || email.timestamp || 'N/A'}\n`;
+                                    result += `📝 Preview: ${email.text ? email.text.substring(0, 100) + (email.text.length > 100 ? '...' : '') : (email.body ? email.body.substring(0, 100) + '...' : (email.content ? email.content.substring(0, 100) + '...' : 'N/A'))}\n\n`;
+                                });
+                                
+                                if (emails.length > 5) {
+                                    result += `... and ${emails.length - 5} more emails`;
+                                }
+                                
+                                // Add single_select button if there are multiple emails
+                                if (emails.length > 1) {
+                                    let sections = [];
+                                    let rows = [];
+                                    
+                                    emails.slice(0, 10).forEach((email, index) => {
+                                        const subject = email.subject || email.title || (email.subject === '' ? 'No Subject' : 'No Subject');
+                                        const from = email.from || email.sender || 'Unknown Sender';
+                                        const preview = email.text ? email.text.substring(0, 50) : (email.body ? email.body.substring(0, 50) : (email.content ? email.content.substring(0, 50) : 'No content'));
+                                        
+                                        rows.push({
+                                            title: `📧 Email ${index + 1}: ${subject}`,
+                                            description: `From: ${from.length > 50 ? from.substring(0, 50) + '...' : from}`,
+                                            id: `viewemail_mailbox_${text}_${index}`
+                                        });
+                                    });
+                                    
+                                    sections.push({
+                                        title: "📧 Select Email to View",
+                                        rows: rows
+                                    });
+                                    
+                                    let msg = generateWAMessageFromContent(m.chat, {
+                                        viewOnceMessage: {
+                                            message: {
+                                                messageContextInfo: {
+                                                    deviceListMetadata: {},
+                                                    deviceListMetadataVersion: 2
+                                                },
+                                                interactiveMessage: {
+                                                    body: { text: result },
+                                                    footer: { text: "📧 Select an email to view full content • 🔄 Refresh inbox" },
+                                                    nativeFlowMessage: {
+                                                        buttons: [
+                                                            {
+                                                                name: "single_select",
+                                                                buttonParamsJson: JSON.stringify({
+                                                                    title: "📧 View Email",
+                                                                    sections: sections
+                                                                })
+                                                            },
+                                                            {
+                                                                name: "quick_reply",
+                                                                buttonParamsJson: JSON.stringify({
+                                                                    display_text: "🔄 Refresh Inbox",
+                                                                    id: `.mailbox ${text}`
+                                                                })
+                                                            }
+                                                        ]
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }, { userJid: m.sender, quoted: m });
+                                    
+                                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                                    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+                                }
+                            } else {
+                                result += `❌ Invalid email data structure`;
+                            }
+                        }
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        // Show raw response for debugging
+                        let result = `❌ *MAILBOX CHECK FAILED*\n\n`;
+                        result += `📧 ID: ${text}\n\n`;
+                        result += `📄 Raw API Response:\n`;
+                        result += `\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+                        return m.reply(result);
+                    }
+                } catch (error) {
+                    console.error("Mailbox Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat mengambil inbox email.");
+                }
+            }
+                break;
+
+            case "debugmail": {
+                if (!text) return m.reply(`Contoh: ${cmd} U2Vzc2lvbjqZYAM9Uu5BbY2OC-CMwAxt`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    
+                    const response = await fetch(`https://api.ferdev.my.id/internet/mailbox?id=${encodeURIComponent(text)}&apikey=keysita_47JX47JX`);
+                    const data = await response.json();
+                    
+                    let result = `🔍 *DEBUG MAILBOX*\n\n`;
+                    result += `📄 Raw JSON Response:\n`;
+                    result += `\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+                    
+                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                    return m.reply(result);
+                } catch (error) {
+                    console.error("Debug Mail Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat debug mailbox.");
+                }
+            }
+                break;
+
+            case "debugneko": {
+                if (!text) return m.reply(`Contoh: ${cmd} hehuna2381@inboxbear.com`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    
+                    const response = await fetch(`https://api.nekolabs.web.id/tools/tempmail/v2/inbox?email=${encodeURIComponent(text)}`);
+                    const data = await response.json();
+                    
+                    let result = `🔍 *DEBUG NEKO MAILBOX*\n\n`;
+                    result += `📄 Raw JSON Response:\n`;
+                    result += `\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+                    
+                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                    return m.reply(result);
+                } catch (error) {
+                    console.error("Debug Neko Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat debug neko mailbox.");
+                }
+            }
+                break;
+
+            case "vcc":
+            case "generatevcc": {
+                if (!text) return m.reply(`Contoh: ${cmd} Visa atau ${cmd} Mastercard\n\nJenis yang didukung: Visa, Mastercard, American-Express, JCB`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "💳", key: m.key } });
+                    
+                    console.log(`[VCC] Generating VCC for: ${text}`);
+                    
+                    // Primary: NekoLabs (better response format)
+                    let response = await fetch(`https://api.nekolabs.web.id/tools/vcc-generator?type=${encodeURIComponent(text.toLowerCase())}`);
+                    let data = await response.json();
+                    console.log(`[VCC] NekoLabs response:`, data);
+                    
+                    if (!data.success || !data.data) {
+                        // Fallback: sankavollerei.com
+                        console.log(`[VCC] Trying sankavollerei.com fallback`);
+                        response = await fetch(`https://www.sankavollerei.com/tools/vcc?apikey=planaai&bin=${encodeURIComponent(text)}`);
+                        data = await response.json();
+                        console.log(`[VCC] sankavollerei.com response:`, data);
+                    }
+                    
+                    if (data.success && data.data) {
+                        const vccInfo = data.data;
+                        let result = `💳 *VIRTUAL CREDIT CARD*\n\n`;
+                        result += `💳 Card Number: ${vccInfo.number || vccInfo.cardNumber || 'N/A'}\n`;
+                        result += `� Expiry: $c{vccInfo.expiry || vccInfo.expiryDate || 'N/A'}\n`;
+                        result += `🔒 CVV: ${vccInfo.cvv || vccInfo.cvc || 'N/A'}\n`;
+                        result += `🏢 Brand: ${vccInfo.brand || text.toUpperCase()}\n`;
+                        result += `🏦 Bank: ${vccInfo.bank || vccInfo.issuer || 'N/A'}\n`;
+                        result += `🌍 Country: ${vccInfo.country || 'N/A'}\n`;
+                        result += `💰 Type: ${vccInfo.type || 'Credit'}\n\n`;
+                        result += `⚠️ *Disclaimer: For testing purposes only!*`;
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        console.log(`[VCC] All APIs failed for: ${text}`);
+                        return m.reply(`❌ Tidak dapat generate VCC untuk brand ${text}. Coba: Visa, Mastercard, American-Express, JCB`);
+                    }
+                } catch (error) {
+                    console.error("VCC Generator Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat generate VCC.");
+                }
+            }
+                break;
+
+            // === NEKOLABS API INTEGRATION ===
+            case "subdomain2":
+            case "subdomainfinder": {
+                if (!text) return m.reply(`Contoh: ${cmd} google.com`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
+                    
+                    // Primary: NekoLabs (no API key required)
+                    let response = await fetch(`https://api.nekolabs.web.id/tools/finder/subdomain-finder?domain=${encodeURIComponent(text)}`);
+                    let data = await response.json();
+                    
+                    if (!data.success) {
+                        // Fallback: sankavollerei.com
+                        response = await fetch(`https://www.sankavollerei.com/tools/subdo?apikey=planaai&url=https://${encodeURIComponent(text)}`);
+                        data = await response.json();
+                    }
+                    
+                    if (data.success && data.data && data.data.length > 0) {
+                        let result = `🔍 *SUBDOMAIN FINDER*\n\n`;
+                        result += `🎯 Target: ${text}\n`;
+                        result += `📊 Found: ${data.data.length} subdomains\n\n`;
+                        
+                        data.data.slice(0, 15).forEach((subdomain, index) => {
+                            result += `${index + 1}. ${subdomain}\n`;
+                        });
+                        
+                        if (data.data.length > 15) {
+                            result += `\n... and ${data.data.length - 15} more subdomains`;
+                        }
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        return m.reply("❌ Tidak ditemukan subdomain untuk domain tersebut.");
+                    }
+                } catch (error) {
+                    console.error("Subdomain Finder Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat melakukan subdomain scan.");
+                }
+            }
+                break;
+
+            case "tempmail2":
+            case "nekomail": {
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "📧", key: m.key } });
+                    
+                    // Primary: NekoLabs
+                    let response = await fetch(`https://api.nekolabs.web.id/tools/tempmail/v2/create`);
+                    let data = await response.json();
+                    
+                    if (!data.success) {
+                        // Fallback: ferdev.my.id
+                        response = await fetch(`https://api.ferdev.my.id/internet/tempmail?apikey=keysita_47JX47JX`);
+                        data = await response.json();
+                    }
+                    
+                    if (data.success && data.data) {
+                        const mailInfo = data.data;
+                        let result = `📧 *TEMPORARY EMAIL (NekoLabs)*\n\n`;
+                        result += `📧 Email: ${mailInfo.email}\n`;
+                        result += `⏰ Created: ${new Date().toLocaleString()}\n\n`;
+                        result += `💡 Gunakan command .nekomailbox ${mailInfo.email} untuk cek inbox`;
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        return m.reply("❌ Tidak dapat membuat temporary email.");
+                    }
+                } catch (error) {
+                    console.error("NekoMail Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat membuat temporary email.");
+                }
+            }
+                break;
+
+            case "nekomailbox":
+            case "mailbox2": {
+                if (!text) return m.reply(`Contoh: ${cmd} refigy7204@clowmail.com`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "📧", key: m.key } });
+                    
+                    const response = await fetch(`https://api.nekolabs.web.id/tools/tempmail/v2/inbox?email=${encodeURIComponent(text)}`);
+                    const data = await response.json();
+                    
+                    console.log(`[NEKOMAILBOX] Response for ${text}:`, data);
+                    
+                    // Handle different response structures
+                    let emails = [];
+                    let isSuccess = false;
+                    
+                    if (data.success && data.result) {
+                        // NekoLabs might use 'result' instead of 'data'
+                        if (Array.isArray(data.result)) {
+                            emails = data.result;
+                            isSuccess = true;
+                        } else if (data.result && Array.isArray(data.result.emails)) {
+                            emails = data.result.emails;
+                            isSuccess = true;
+                        } else if (data.result && Array.isArray(data.result.messages)) {
+                            emails = data.result.messages;
+                            isSuccess = true;
+                        }
+                    } else if (data.success && data.data) {
+                        // Standard structure
+                        if (Array.isArray(data.data)) {
+                            emails = data.data;
+                            isSuccess = true;
+                        } else if (data.data && Array.isArray(data.data.emails)) {
+                            emails = data.data.emails;
+                            isSuccess = true;
+                        } else if (data.data && Array.isArray(data.data.messages)) {
+                            emails = data.data.messages;
+                            isSuccess = true;
+                        }
+                    } else if (data.success && Array.isArray(data.emails)) {
+                        // Alternative structure
+                        emails = data.emails;
+                        isSuccess = true;
+                    }
+                    
+                    // Final safety check
+                    if (!Array.isArray(emails)) {
+                        emails = [];
+                    }
+                    
+                    if (isSuccess) {
+                        let result = `📧 *NEKO MAILBOX INBOX*\n\n`;
+                        result += `📧 Email: ${text}\n`;
+                        
+                        // Ensure emails is always an array
+                        if (!Array.isArray(emails)) {
+                            emails = [];
+                        }
+                        
+                        result += `📊 Total Emails: ${emails.length}\n\n`;
+                        
+                        if (emails.length === 0) {
+                            result += `📭 No emails found in inbox.`;
+                            
+                            // Add refresh button when no emails found
+                            let msg = generateWAMessageFromContent(m.chat, {
+                                viewOnceMessage: {
+                                    message: {
+                                        messageContextInfo: {
+                                            deviceListMetadata: {},
+                                            deviceListMetadataVersion: 2
+                                        },
+                                        interactiveMessage: {
+                                            body: { text: result },
+                                            footer: { text: "Klik tombol untuk refresh inbox" },
+                                            nativeFlowMessage: {
+                                                buttons: [{
+                                                    name: "quick_reply",
+                                                    buttonParamsJson: JSON.stringify({
+                                                        display_text: "🔄 Check Inbox Again",
+                                                        id: `.nekomailbox ${text}`
+                                                    })
+                                                }]
+                                            }
+                                        }
+                                    }
+                                }
+                            }, { userJid: m.sender, quoted: m });
+                            
+                            await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                            return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+                        } else {
+                            // Double check before forEach
+                            if (Array.isArray(emails) && emails.length > 0) {
+                                emails.slice(0, 5).forEach((email, index) => {
+                                    result += `📧 Email ${index + 1}:\n`;
+                                    result += `👤 From: ${email.from || email.sender || 'N/A'}\n`;
+                                    result += `📋 Subject: ${email.subject || email.title || (email.subject === '' ? 'No Subject' : 'N/A')}\n`;
+                                    result += `📅 Date: ${email.date || email.timestamp || 'N/A'}\n`;
+                                    result += `📝 Preview: ${email.text ? email.text.substring(0, 100) + (email.text.length > 100 ? '...' : '') : (email.body ? email.body.substring(0, 100) + '...' : (email.content ? email.content.substring(0, 100) + '...' : 'N/A'))}\n\n`;
+                                });
+                                
+                                if (emails.length > 5) {
+                                    result += `... and ${emails.length - 5} more emails`;
+                                }
+                                
+                                // Add single_select button if there are multiple emails
+                                if (emails.length > 1) {
+                                    let sections = [];
+                                    let rows = [];
+                                    
+                                    emails.slice(0, 10).forEach((email, index) => {
+                                        const subject = email.subject || email.title || (email.subject === '' ? 'No Subject' : 'No Subject');
+                                        const from = email.from || email.sender || 'Unknown Sender';
+                                        const preview = email.text ? email.text.substring(0, 50) : (email.body ? email.body.substring(0, 50) : (email.content ? email.content.substring(0, 50) : 'No content'));
+                                        
+                                        rows.push({
+                                            title: `📧 Email ${index + 1}: ${subject}`,
+                                            description: `From: ${from.length > 50 ? from.substring(0, 50) + '...' : from}`,
+                                            id: `viewemail_nekomailbox_${text}_${index}`
+                                        });
+                                    });
+                                    
+                                    sections.push({
+                                        title: "📧 Select Email to View",
+                                        rows: rows
+                                    });
+                                    
+                                    let msg = generateWAMessageFromContent(m.chat, {
+                                        viewOnceMessage: {
+                                            message: {
+                                                messageContextInfo: {
+                                                    deviceListMetadata: {},
+                                                    deviceListMetadataVersion: 2
+                                                },
+                                                interactiveMessage: {
+                                                    body: { text: result },
+                                                    footer: { text: "📧 Select an email to view full content • 🔄 Refresh inbox" },
+                                                    nativeFlowMessage: {
+                                                        buttons: [
+                                                            {
+                                                                name: "single_select",
+                                                                buttonParamsJson: JSON.stringify({
+                                                                    title: "📧 View Email",
+                                                                    sections: sections
+                                                                })
+                                                            },
+                                                            {
+                                                                name: "quick_reply",
+                                                                buttonParamsJson: JSON.stringify({
+                                                                    display_text: "🔄 Refresh Inbox",
+                                                                    id: `.nekomailbox ${text}`
+                                                                })
+                                                            }
+                                                        ]
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }, { userJid: m.sender, quoted: m });
+                                    
+                                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                                    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+                                }
+                            } else {
+                                result += `❌ Invalid email data structure`;
+                            }
+                        }
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        // Show raw response for debugging
+                        let result = `❌ *NEKO MAILBOX CHECK FAILED*\n\n`;
+                        result += `📧 Email: ${text}\n\n`;
+                        result += `📄 API Response Structure:\n`;
+                        result += `Success: ${data.success}\n`;
+                        result += `Has Result: ${!!data.result}\n`;
+                        result += `Has Data: ${!!data.data}\n`;
+                        result += `Has Emails: ${!!data.emails}\n\n`;
+                        result += `📄 Raw API Response:\n`;
+                        result += `\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+                        return m.reply(result);
+                    }
+                } catch (error) {
+                    console.error("NekoMailbox Error:", error);
+                    
+                    // More detailed error information
+                    let errorMsg = `❌ Terjadi kesalahan saat mengambil inbox email.\n\n`;
+                    errorMsg += `🔍 Error Details: ${error.message}\n`;
+                    errorMsg += `📧 Email: ${text}`;
+                    
+                    return m.reply(errorMsg);
+                }
+            }
+                break;
+
+            case "nekovcc":
+            case "vcc2": {
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "💳", key: m.key } });
+                    
+                    // Interactive VCC Type Selection
+                    let msg = generateWAMessageFromContent(m.chat, {
+                        viewOnceMessage: {
+                            message: {
+                                messageContextInfo: {
+                                    deviceListMetadata: {},
+                                    deviceListMetadataVersion: 2
+                                },
+                                interactiveMessage: {
+                                    body: { text: `💳 *NEKO VCC GENERATOR*\n\nPilih jenis kartu kredit yang ingin digenerate:` },
+                                    footer: { text: `© Powered By ${global.namaOwner}` },
+                                    header: { title: "💳 VCC Generator", subtitle: "", hasMediaAttachment: false },
+                                    nativeFlowMessage: {
+                                        buttons: [
+                                            {
+                                                name: "single_select",
+                                                buttonParamsJson: JSON.stringify({
+                                                    title: "Pilih Jenis Kartu",
+                                                    sections: [{
+                                                        title: "Credit Card Types",
+                                                        rows: [
+                                                            {
+                                                                header: "💳 Visa",
+                                                                title: "Generate Visa Card",
+                                                                description: "Most widely accepted",
+                                                                id: ".nekovccgen visa"
+                                                            },
+                                                            {
+                                                                header: "💳 Mastercard",
+                                                                title: "Generate Mastercard",
+                                                                description: "Global payment network",
+                                                                id: ".nekovccgen mastercard"
+                                                            },
+                                                            {
+                                                                header: "💳 American Express",
+                                                                title: "Generate AmEx Card",
+                                                                description: "Premium card network",
+                                                                id: ".nekovccgen american-express"
+                                                            },
+                                                            {
+                                                                header: "💳 JCB",
+                                                                title: "Generate JCB Card",
+                                                                description: "Japanese card network",
+                                                                id: ".nekovccgen jcb"
+                                                            }
+                                                        ]
+                                                    }]
+                                                })
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }, { userJid: m.sender, quoted: m });
+                    
+                    await sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+                    await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                    
+                } catch (error) {
+                    console.error("NekoVCC Menu Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat menampilkan menu VCC.");
+                }
+            }
+                break;
+
+            case "nekovccgen": {
+                if (!text) return m.reply(`Contoh: ${cmd} visa`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "💳", key: m.key } });
+                    
+                    // Primary: NekoLabs
+                    let response = await fetch(`https://api.nekolabs.web.id/tools/vcc-generator?type=${encodeURIComponent(text)}`);
+                    let data = await response.json();
+                    
+                    if (!data.success) {
+                        // Fallback: sankavollerei.com
+                        response = await fetch(`https://www.sankavollerei.com/tools/vcc?apikey=planaai&bin=${encodeURIComponent(text)}`);
+                        data = await response.json();
+                    }
+                    
+                    if (data.success && data.data) {
+                        const vccInfo = data.data;
+                        let result = `💳 *NEKO VCC GENERATOR*\n\n`;
+                        result += `💳 Card Number: ${vccInfo.number || vccInfo.cardNumber || 'N/A'}\n`;
+                        result += `📅 Expiry: ${vccInfo.expiry || vccInfo.expiryDate || 'N/A'}\n`;
+                        result += `🔒 CVV: ${vccInfo.cvv || vccInfo.cvc || 'N/A'}\n`;
+                        result += `🏢 Brand: ${vccInfo.brand || text.toUpperCase()}\n`;
+                        result += `🏦 Bank: ${vccInfo.bank || vccInfo.issuer || 'N/A'}\n`;
+                        result += `🌍 Country: ${vccInfo.country || 'N/A'}\n`;
+                        result += `💰 Type: ${vccInfo.type || 'Credit'}\n\n`;
+                        result += `⚠️ *Disclaimer: For testing purposes only!*`;
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        return m.reply("❌ Tidak dapat generate VCC untuk jenis kartu tersebut.");
+                    }
+                } catch (error) {
+                    console.error("NekoVCC Generator Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat generate VCC.");
+                }
+            }
+                break;
+
+            case "ytsummarizer":
+            case "ytsum": {
+                if (!text) return m.reply(`Contoh: ${cmd} https://youtube.com/watch?v=dQw4w9WgXcQ`);
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "📹", key: m.key } });
+                    
+                    const response = await fetch(`https://api.nekolabs.web.id/tools/yt-summarizer/v2?url=${encodeURIComponent(text)}&language=id`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.data) {
+                        const summary = data.data;
+                        let result = `📹 *YOUTUBE VIDEO SUMMARIZER*\n\n`;
+                        result += `🎬 Title: ${summary.title || 'N/A'}\n`;
+                        result += `👤 Channel: ${summary.channel || 'N/A'}\n`;
+                        result += `⏱️ Duration: ${summary.duration || 'N/A'}\n`;
+                        result += `👀 Views: ${summary.views || 'N/A'}\n`;
+                        result += `📅 Published: ${summary.publishedAt || 'N/A'}\n\n`;
+                        result += `📝 *Summary:*\n${summary.summary || 'No summary available'}\n\n`;
+                        
+                        if (summary.keyPoints && summary.keyPoints.length > 0) {
+                            result += `🔑 *Key Points:*\n`;
+                            summary.keyPoints.forEach((point, index) => {
+                                result += `${index + 1}. ${point}\n`;
+                            });
+                        }
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                        return m.reply(result);
+                    } else {
+                        return m.reply("❌ Tidak dapat membuat ringkasan untuk video YouTube tersebut.");
+                    }
+                } catch (error) {
+                    console.error("YouTube Summarizer Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat membuat ringkasan video YouTube.");
+                }
+            }
+                break;
+
+            case "ktpmaker":
+            case "buatktp": {
+                if (!text) {
+                    return m.reply(`📋 *KTP MAKER*\n\nFormat: ${cmd} nama|nik|ttl|jk|alamat|agama|status|pekerjaan|kewarganegaraan|image_url\n\nContoh:\n${cmd} John Doe|3216023110070004|Jakarta, 31-10-2007|Laki-laki|Jl. Merdeka No. 123|Islam|Belum Kawin|Pelajar|WNI|https://example.com/photo.jpg`);
+                }
+                
+                try {
+                    await sock.sendMessage(m.chat, { react: { text: "🆔", key: m.key } });
+                    
+                    const params = text.split("|");
+                    if (params.length < 9) {
+                        return m.reply("❌ Format tidak lengkap. Gunakan format:\nnama|nik|ttl|jk|alamat|agama|status|pekerjaan|kewarganegaraan|image_url");
+                    }
+                    
+                    const [nama, nik, ttl, jk, alamat, agama, status, pekerjaan, kewarganegaraan, image] = params;
+                    
+                    const url = `https://www.sankavollerei.com/imagecreator/ktp-maker?apikey=planaai&nama=${encodeURIComponent(nama)}&nik=${encodeURIComponent(nik)}&ttl=${encodeURIComponent(ttl)}&jk=${encodeURIComponent(jk)}&alamat=${encodeURIComponent(alamat)}&agama=${encodeURIComponent(agama)}&status=${encodeURIComponent(status)}&pekerjaan=${encodeURIComponent(pekerjaan)}&kewarganegaraan=${encodeURIComponent(kewarganegaraan)}&image=${encodeURIComponent(image || '')}`;
+                    
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    
+                    if (data.success && data.data && data.data.image_url) {
+                        await sock.sendMessage(m.chat, {
+                            image: { url: data.data.image_url },
+                            caption: `🆔 *KTP GENERATED*\n\n👤 Nama: ${nama}\n🆔 NIK: ${nik}\n📅 TTL: ${ttl}\n👤 JK: ${jk}\n📍 Alamat: ${alamat}\n🕌 Agama: ${agama}\n💍 Status: ${status}\n💼 Pekerjaan: ${pekerjaan}\n🌍 Kewarganegaraan: ${kewarganegaraan}\n\n⚠️ *Disclaimer: For educational purposes only!*`
+                        }, { quoted: m });
+                        
+                        await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                    } else {
+                        return m.reply("❌ Gagal membuat KTP. Periksa format data yang dimasukkan.");
+                    }
+                } catch (error) {
+                    console.error("KTP Maker Error:", error);
+                    return m.reply("❌ Terjadi kesalahan saat membuat KTP.");
                 }
             }
                 break;

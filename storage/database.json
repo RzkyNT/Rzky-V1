@@ -148,7 +148,8 @@
     "120363408911079231@newsletter": {},
     "6285133756729@s.whatsapp.net": {},
     "6287760213151@s.whatsapp.net": {},
-    "120363420774454853@newsletter": {}
+    "120363420774454853@newsletter": {},
+    "120363421523314125@newsletter": {}
   },
   "groups": {
     "120363403581107089@g.us": {
@@ -234,6 +235,6 @@
     "reseller": [],
     "bljpm": [],
     "respon": [],
-    "ai_chat": true
+    "ai_chat": false
   }
 }

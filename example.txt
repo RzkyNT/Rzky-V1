@@ -17,3 +17,26 @@ curl -X GET "[https://api.gimita.id/api/tools/portscan?host=103.247.8.80&ports=1
 [https://www.sankavollerei.com/stalk/nik?apikey=planaai&nik=3216023110070004](https://www.sankavollerei.com/stalk/nik?apikey=planaai&nik=3216023110070004)
 [https://www.sankavollerei.com/imagecreator/ktp-maker?apikey=planaai&nama=ISI_NAMANYA&nik=ISI_NIKNYA&ttl=ISI_TTLNYA&jk=ISI_JKNYA&alamat=ISI_ALAMATNYA&agama=ISI_AGAMANYA&status=ISI_STATUSNYA&pekerjaan=ISI_PEKERJAANNYA&kewarganegaraan=ISI_KEWARGANEGARAANNYA&image=ISI_IMAGENYA](https://www.sankavollerei.com/imagecreator/ktp-maker?apikey=planaai&nama=ISI_NAMANYA&nik=ISI_NIKNYA&ttl=ISI_TTLNYA&jk=ISI_JKNYA&alamat=ISI_ALAMATNYA&agama=ISI_AGAMANYA&status=ISI_STATUSNYA&pekerjaan=ISI_PEKERJAANNYA&kewarganegaraan=ISI_KEWARGANEGARAANNYA&image=ISI_IMAGENYA)
 [https://www.sankavollerei.com/tools/vcc?apikey=planaai&bin=Visa](https://www.sankavollerei.com/tools/vcc?apikey=planaai&bin=Visa)
+
+# NekoLabs API Endpoints
+curl -X GET "https://api.nekolabs.web.id/tools/finder/subdomain-finder?domain=smktarunabangsa.sch.id"
+curl -X GET "https://api.nekolabs.web.id/tools/tempmail/v2/create"
+curl -X GET "https://api.nekolabs.web.id/tools/tempmail/v2/inbox?email=refigy7204%40clowmail.com"
+curl -X GET "https://api.nekolabs.web.id/tools/vcc-generator?type=visa"
+curl -X GET "https://api.nekolabs.web.id/tools/vcc-generator?type=american-express"
+curl -X GET "https://api.nekolabs.web.id/tools/vcc-generator?type=mastercard"
+curl -X GET "https://api.nekolabs.web.id/tools/vcc-generator?type=jcb"
+curl -X GET "https://api.nekolabs.web.id/tools/yt-summarizer/v2?url=https%3A%2F%2Fyoutube.com%2Fshorts%2FYCXZ_3BeYMI%3Fsi%3DpnriVY-2Nx-PJK5J&language=id"
+curl -X GET "https://api.nekolabs.web.id/tools/finder/subdomain-finder?domain=smktarunabangsa.sch.id"
+
+curl -X GET "https://api.nekolabs.web.id/tools/tempmail/v2/create"
+curl -X GET "https://api.nekolabs.web.id/tools/tempmail/v2/inbox?email=refigy7204%40clowmail.com"
+
+gunakan  buttons: [{name: "single_select",
+curl -X GET "https://api.nekolabs.web.id/tools/vcc-generator?type=visa"
+curl -X GET "https://api.nekolabs.web.id/tools/vcc-generator?type=american-express"
+curl -X GET "https://api.nekolabs.web.id/tools/vcc-generator?type=mastercard"
+curl -X GET "https://api.nekolabs.web.id/tools/vcc-generator?type=jcb"
+
+curl -X GET "https://api.nekolabs.web.id/tools/yt-summarizer/v2?url=https%3A%2F%2Fyoutube.com%2Fshorts%2FYCXZ_3BeYMI%3Fsi%3DpnriVY-2Nx-PJK5J&language=id"
+curl -X GET "https://api.nekolabs.web.id/tools/yt-summarizer/v2?url=https%3A%2F%2Fyoutube.com%2Fshorts%2FYCXZ_3BeYMI%3Fsi%3DpnriVY-2Nx-PJK5J&language=id"
