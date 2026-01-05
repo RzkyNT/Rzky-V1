@@ -1,17 +1,19 @@
-spotify search curl -X GET "https://www.sankavollerei.com/search/spotify?apikey=planaai&q=Su%20asu"
-spotify download "https://www.sankavollerei.com/download/spotify?apikey=planaai&url=https%3A%2F%2Fopen.spotify.com%2Ftrack%2F2JN3ugW1cEahbYw0I5mw5U"
-
-Yt Search curl -X GET "https://api.gimita.id/api/search/youtube?query=ceramah%20ustadz%20abdul%20somad"
-Yt Download Audio curl -X GET "https://api.gimita.id/api/downloader/ytmp3?url=https%3A%2F%2Fyoutu.be%2FvYbb0N5IYEM%3Fsi%3D3m72wukxW_LfT-8N"
-Yt Download Video curl -X GET "https://api.gimita.id/api/downloader/ytmp4?resolution=720&url=https%3A%2F%2Fyoutu.be%2FvYbb0N5IYEM%3Fsi%3D3m72wukxW_LfT-8N"
-
-Xnxx Search curl -X GET "https://api.gimita.id/api/search/xnxx?page=1&query=dokter%20perawat"
-Xnxx Download curl -X GET "https://api.gimita.id/api/downloader/xnxx?url=https%3A%2F%2Fwww.xnxx.com%2Fvideo-1csk5f68%2Fmy_step_mom_has_a_trans_step_sister_what_"\
-
-upload ke catbox lalu link di simpan dan digunakan curl -X GET "https://api.gimita.id/api/maker/deepnude?url=https%3A%2F%2Fi.pinimg.com%2F736x%2F39%2Fb4%2Fc5%2F39b4c5034208e94b40d0717fd635dce3.jpg"
-karna generate image lumayan lama, jadi tolong cek progressnya curl -X GET "https://api.gimita.id/api/maker/deepnude-status?taskId=ae9e90cb-98d6-4d23-b0bd-8734162ef917"
-
-remove bg upload ke catbox lalu link di simpan dan digunakan curl -X GET "https://api.gimita.id/api/maker/removebg?image=%5Bobject%20File%5D&url=https%3A%2F%2Fi.pinimg.com%2F736x%2F39%2Fb4%2Fc5%2F39b4c5034208e94b40d0717fd635dce3.jpg"
-upscale image upload ke catbox lalu link di simpan dan digunakan curl -X GET "https://api.gimita.id/api/tools/upscale?url=https%3A%2F%2Fi.pinimg.com%2F736x%2F39%2Fb4%2Fc5%2F39b4c5034208e94b40d0717fd635dce3.jpg"
-
-https://www.sankavollerei.com/tools/vcc?apikey=planaai&bin=Visa
+curl -X GET "[https://api.gimita.id/api/tools/whois?domain=smktarunabangsa.sch.id](https://api.gimita.id/api/tools/whois?domain=smktarunabangsa.sch.id)"
+curl -X GET "[https://api.gimita.id/api/tools/dns?domain=smktarunabangsa.sch.id](https://api.gimita.id/api/tools/dns?domain=smktarunabangsa.sch.id)"
+curl -X GET "[https://api.gimita.id/api/tools/portscan?host=103.247.8.80&ports=1-1000&scan_type=full](https://api.gimita.id/api/tools/portscan?host=103.247.8.80&ports=1-1000&scan_type=full)"
+[https://api.ferdev.my.id/internet/whois?domain=google.com&apikey=keysita_47JX47JX](https://api.ferdev.my.id/internet/whois?domain=google.com&apikey=keysita_47JX47JX)
+[https://api.ferdev.my.id/internet/tempmail?apikey=keysita_47JX47JX](https://api.ferdev.my.id/internet/tempmail?apikey=keysita_47JX47JX)
+[https://api.ferdev.my.id/internet/mailbox?id=U2Vzc2lvbjo0YFzo8v5FTLybU1xr9hOF&apikey=keysita_47JX47JX](https://api.ferdev.my.id/internet/mailbox?id=U2Vzc2lvbjo0YFzo8v5FTLybU1xr9hOF&apikey=keysita_47JX47JX)
+[https://api.ferdev.my.id/internet/infoip?ip=103.247.8.80&apikey=keysita_47JX47JX](https://api.ferdev.my.id/internet/infoip?ip=103.247.8.80&apikey=keysita_47JX47JX)
+[https://api.ferdev.my.id/internet/cekhost?domain=smktarunabangsa.sch.id&apikey=keysita_47JX47JX](https://api.ferdev.my.id/internet/cekhost?domain=smktarunabangsa.sch.id&apikey=keysita_47JX47JX)
+[https://www.sankavollerei.com/random/cek-nomor?apikey=planaai&nomor=62895602416781](https://www.sankavollerei.com/random/cek-nomor?apikey=planaai&nomor=62895602416781)
+[https://www.sankavollerei.com/random/cek-nomorinter?apikey=planaai&nomor=62895602416781](https://www.sankavollerei.com/random/cek-nomorinter?apikey=planaai&nomor=62895602416781)
+[https://www.sankavollerei.com/tools/cekkodepos?apikey=planaai&q=17121](https://www.sankavollerei.com/tools/cekkodepos?apikey=planaai&q=17121)
+[https://www.sankavollerei.com/tools/subdo?apikey=planaai&url=https%3A%2F%2Fsmktarunabangsa.sch.id](https://www.sankavollerei.com/tools/subdo?apikey=planaai&url=https%3A%2F%2Fsmktarunabangsa.sch.id)
+[https://www.sankavollerei.com/tools/iplookup?apikey=planaai&q=103.247.8.80](https://www.sankavollerei.com/tools/iplookup?apikey=planaai&q=103.247.8.80)
+[https://www.sankavollerei.com/tools/trackip?apikey=planaai&ip=103.247.8.80](https://www.sankavollerei.com/tools/trackip?apikey=planaai&ip=103.247.8.80)
+[https://www.sankavollerei.com/tools/whois?apikey=planaai&dns=103.247.8.80](https://www.sankavollerei.com/tools/whois?apikey=planaai&dns=103.247.8.80)
+[https://www.sankavollerei.com/tools/whoip?apikey=planaai&ip=103.247.8.80](https://www.sankavollerei.com/tools/whoip?apikey=planaai&ip=103.247.8.80)
+[https://www.sankavollerei.com/stalk/nik?apikey=planaai&nik=3216023110070004](https://www.sankavollerei.com/stalk/nik?apikey=planaai&nik=3216023110070004)
+[https://www.sankavollerei.com/imagecreator/ktp-maker?apikey=planaai&nama=ISI_NAMANYA&nik=ISI_NIKNYA&ttl=ISI_TTLNYA&jk=ISI_JKNYA&alamat=ISI_ALAMATNYA&agama=ISI_AGAMANYA&status=ISI_STATUSNYA&pekerjaan=ISI_PEKERJAANNYA&kewarganegaraan=ISI_KEWARGANEGARAANNYA&image=ISI_IMAGENYA](https://www.sankavollerei.com/imagecreator/ktp-maker?apikey=planaai&nama=ISI_NAMANYA&nik=ISI_NIKNYA&ttl=ISI_TTLNYA&jk=ISI_JKNYA&alamat=ISI_ALAMATNYA&agama=ISI_AGAMANYA&status=ISI_STATUSNYA&pekerjaan=ISI_PEKERJAANNYA&kewarganegaraan=ISI_KEWARGANEGARAANNYA&image=ISI_IMAGENYA)
+[https://www.sankavollerei.com/tools/vcc?apikey=planaai&bin=Visa](https://www.sankavollerei.com/tools/vcc?apikey=planaai&bin=Visa)

@@ -1646,17 +1646,57 @@ module.exports = async (m, sock) => {
                     
                     console.log("TikTok Video API Response:", data); // Debug log
                     
-                    if (!data.success || !data.data || data.data.length === 0) {
+                    // Debug: Log the structure of videos array
+                    if (data?.data?.videos) {
+                        console.log("Videos array sample:", data.data.videos[0]);
+                    } else if (data?.data) {
+                        console.log("Data array sample:", data.data[0]);
+                    }
+                    
+                    // Fix: Handle different API response structures
+                    let videos = [];
+                    if (data?.data?.videos && Array.isArray(data.data.videos)) {
+                        videos = data.data.videos;
+                    } else if (data?.data && Array.isArray(data.data)) {
+                        videos = data.data;
+                    } else if (Array.isArray(data)) {
+                        videos = data;
+                    }
+                    
+                    if (!data.success || videos.length === 0) {
                         return m.reply("❌ Tidak ada video TikTok yang ditemukan untuk pencarian tersebut.");
                     }
                     
                     // Create interactive list with video results
-                    const videos = data.data.slice(0, 10).map((video, index) => ({
-                        header: `📱 ${video.title || `Video ${index + 1}`}`,
-                        title: `👤 ${video.author || 'Unknown'} | 👀 ${video.play_count || '0'}`,
-                        description: `⏱️ ${video.duration || 'Unknown'} | ❤️ ${video.digg_count || '0'}`,
-                        id: `.tiktokvideodownload ${encodeURIComponent(video.play_addr || video.video_url)}`
-                    }));
+                    const videoList = videos.slice(0, 10).map((video, index) => {
+                        // Use correct API structure and clean the URL
+                        let videoUrl = video.media?.no_watermark || video.media?.with_watermark || '';
+                        
+                        // Remove tikwm.com prefix if present
+                        if (videoUrl.startsWith('https://tikwm.comhttps://')) {
+                            videoUrl = videoUrl.replace('https://tikwm.comhttps://', 'https://');
+                        } else if (videoUrl.startsWith('https://tikwm.com')) {
+                            videoUrl = videoUrl.replace('https://tikwm.com', '');
+                        }
+                        
+                        // Debug log for each video
+                        console.log(`Video ${index + 1} structure:`, {
+                            title: video.title,
+                            author: video.author?.nickname,
+                            plays: video.stats?.plays,
+                            likes: video.stats?.likes,
+                            duration: video.duration,
+                            originalUrl: video.media?.no_watermark || video.media?.with_watermark,
+                            cleanedUrl: videoUrl
+                        });
+                        
+                        return {
+                            header: `📱 ${video.title || `Video ${index + 1}`}`,
+                            title: `👤 ${video.author?.nickname || video.author?.username || 'Unknown'} | 👀 ${video.stats?.plays || '0'}`,
+                            description: `⏱️ ${Math.floor((video.duration || 0) / 1000)}s | ❤️ ${video.stats?.likes || '0'} | 💬 ${video.stats?.comments || '0'}`,
+                            id: videoUrl ? `.tiktokvideodownload ${encodeURIComponent(videoUrl)}` : `.ttinfo Video tidak tersedia untuk download`
+                        };
+                    });
                     
                     let msg = generateWAMessageFromContent(m.chat, {
                         viewOnceMessage: {
@@ -1666,7 +1706,7 @@ module.exports = async (m, sock) => {
                                     deviceListMetadataVersion: 2
                                 },
                                 interactiveMessage: {
-                                    body: { text: `📱 *HASIL PENCARIAN TIKTOK VIDEO*\n\nQuery: "${text}"\n\nPilih video yang ingin didownload:` },
+                                    body: { text: `📱 *HASIL PENCARIAN TIKTOK VIDEO*\n\nQuery: "${text}"\nTotal: ${videos.length} video\n\nPilih video yang ingin didownload:` },
                                     footer: { text: `© Powered By ${global.namaOwner}` },
                                     header: { title: "📱 TikTok Video Search", subtitle: "", hasMediaAttachment: false },
                                     nativeFlowMessage: {
@@ -1677,7 +1717,7 @@ module.exports = async (m, sock) => {
                                                     title: "Pilih Video TikTok",
                                                     sections: [{
                                                         title: "Video Results",
-                                                        rows: videos
+                                                        rows: videoList
                                                     }]
                                                 })
                                             }
@@ -1698,10 +1738,20 @@ module.exports = async (m, sock) => {
             }
             break;
 
+            case "ttinfo": {
+                return m.reply("❌ Video ini tidak tersedia untuk download. Silakan pilih video lain dari hasil pencarian.");
+            }
+                break;
+
             case "tiktokvideodownload": {
                 const videoUrl = decodeURIComponent(text);
-                if (!videoUrl) {
-                    return m.reply("❌ URL TikTok video tidak valid.");
+                if (!videoUrl || videoUrl.trim() === '' || videoUrl === 'undefined') {
+                    return m.reply("❌ URL TikTok video tidak valid. Silakan pilih video dari hasil pencarian.");
+                }
+                
+                // Validate if it's a proper URL
+                if (!videoUrl.startsWith('http')) {
+                    return m.reply("❌ URL TikTok video tidak valid. Format URL harus dimulai dengan http/https.");
                 }
                 
                 try {
@@ -5879,7 +5929,103 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
             case "hidetagto":
             case "htto": {
                 if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
-                if (!text) return m.reply(`Contoh : ${cmd} Pesannya\nAtau ${cmd} 628123456789@g.us|Pesannya`);
+                
+                // Check if replying to message with media for album messaging
+                if (m.quoted) {
+                    const quotedMsg = m.quoted;
+                    let mediaMessages = [];
+                    
+                    // Check if quoted message has media
+                    if (quotedMsg.mtype && (quotedMsg.mtype.includes('image') || quotedMsg.mtype.includes('video'))) {
+                        try {
+                            // Use downloadAndSaveMediaMessage instead of downloadMediaMessage to avoid decryption issues
+                            const mediaPath = await sock.downloadAndSaveMediaMessage(quotedMsg);
+                            const mediaBuffer = fs.readFileSync(mediaPath);
+                            const mediaType = quotedMsg.mtype.includes('image') ? 'image' : 'video';
+                            
+                            // Clean up temp file
+                            fs.unlinkSync(mediaPath);
+                            
+                            mediaMessages.push({
+                                [mediaType]: mediaBuffer,
+                                caption: text || ""
+                            });
+                            
+                            // Check if there are more images in the conversation context
+                            // This is a simplified approach - in real implementation you might want to
+                            // collect multiple quoted messages or implement a session-based collection
+                            
+                            if (!text) return m.reply(`Reply gambar/video dengan pesan untuk album hidetag\nContoh: ${cmd} Pesan untuk album`);
+                            
+                            // Store album data temporarily
+                            global.albumHidetagData = {
+                                messages: mediaMessages,
+                                text: text,
+                                timestamp: Date.now()
+                            };
+                            
+                            // Show group selection for album
+                            const allGroups = await sock.groupFetchAllParticipating();
+                            const groups = Object.values(allGroups);
+                            if (!groups || groups.length < 1) return m.reply("Tidak ada grup chat.");
+
+                            let rowsGroups = [];
+                            for (let g of groups) {
+                                const name = g.subject || "Unknown";
+                                rowsGroups.push({
+                                    title: name,
+                                    description: `ID - ${g.id}`,
+                                    id: `.htto-album ${g.id}|${name}`
+                                });
+                            }
+
+                            let msg = generateWAMessageFromContent(m.chat, {
+                                viewOnceMessage: {
+                                    message: {
+                                        messageContextInfo: {
+                                            deviceListMetadata: {},
+                                            deviceListMetadataVersion: 2
+                                        },
+                                        interactiveMessage: {
+                                            body: { text: `📸 Album siap dikirim!\nPilih grup untuk mengirim album hidetag` },
+                                            footer: { text: `© Powered By ${global.namaOwner}` },
+                                            header: { title: "🎯 ALBUM HIDETAG", subtitle: "", hasMediaAttachment: false },
+                                            nativeFlowMessage: {
+                                                buttons: [
+                                                    {
+                                                        name: "single_select",
+                                                        buttonParamsJson: JSON.stringify({
+                                                            title: "Pilih Grup",
+                                                            sections: [{
+                                                                title: "Daftar Grup",
+                                                                rows: rowsGroups
+                                                            }]
+                                                        })
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            }, { userJid: m.sender, quoted: m });
+                            
+                            return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+                            
+                        } catch (error) {
+                            console.error("Album hidetag error:", error);
+                            // More specific error messages
+                            if (error.message.includes('decrypt')) {
+                                return m.reply("❌ Gagal memproses media. Media mungkin rusak atau tidak valid.");
+                            } else if (error.message.includes('ENOENT')) {
+                                return m.reply("❌ File media tidak ditemukan. Coba reply media yang baru.");
+                            } else {
+                                return m.reply("❌ Gagal memproses media untuk album. Pastikan media valid dan tidak rusak.");
+                            }
+                        }
+                    }
+                }
+                
+                if (!text) return m.reply(`Contoh : ${cmd} Pesannya\nAtau ${cmd} 628123456789@g.us|Pesannya\n\n📸 Untuk Album Hidetag:\n- Reply gambar dengan ${cmd} Pesan\n- Atau gunakan .addalbum untuk multiple media`);
 
                 // Jika menggunakan format target|pesan -> langsung kirim (sama seperti sebelumnya)
                 if (text.includes("|")) {
@@ -5900,7 +6046,7 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
                         } catch (e) {
                             mentions = [target];
                         }
-                        // await sock.sendMessage(mem, { text: teks }, { quoted: FakeChannel });                    
+                        
                         await sock.sendMessage(target, { text: messageText, mentions }, { quoted: FakeChannel });
                         return m.reply(`✅ Pesan hidetag berhasil dikirim ke ${target}`);
                     } catch (err) {
@@ -5911,6 +6057,11 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
 
                 // Jika hanya berisi pesan -> tampilkan daftar grup untuk dipilih (interactive)
                 try {
+                    // Check if user mentions "album" in text - give guidance
+                    if (text.toLowerCase().includes('album') || text.toLowerCase().includes('foto') || text.toLowerCase().includes('gambar')) {
+                        return m.reply(`📸 Untuk mengirim Album Hidetag:\n\n*Method 1 (Quick):*\nReply gambar dengan: ${cmd} Pesan Anda\n\n*Method 2 (Multiple):*\n1. Reply foto 1: .addalbum\n2. Reply foto 2: .addalbum\n3. Set pesan: .setalbummsg\n4. Kirim: .sendalbum\n\n*Method 3 (Direct):*\n${cmd} 628xxx@g.us|Pesan\n\nAnda tidak bisa kirim album tanpa media!`);
+                    }
+                    
                     global.hidetagMessage = text; // simpan sementara
 
                     const allGroups = await sock.groupFetchAllParticipating();
@@ -5995,6 +6146,79 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
                 }
             }
 
+            case "htto-album": {
+                if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
+                
+                // Check if we have album data or fallback to regular hidetag
+                if (!global.albumHidetagData && !global.hidetagMessage) {
+                    return m.reply("❌ Tidak ada data untuk dikirim. Silakan ulangi proses.");
+                }
+                
+                // If no album data but has regular message, redirect to regular hidetag
+                if (!global.albumHidetagData && global.hidetagMessage) {
+                    return m.reply(`❌ Ini bukan album hidetag.\n\nAnda mencoba kirim text biasa: "${global.hidetagMessage}"\n\n📸 Untuk album, gunakan:\n- Reply gambar dengan .htto Pesan\n- Atau .addalbum untuk multiple media`);
+                }
+                
+                // Check if album data is still valid (not expired)
+                const albumAge = Date.now() - global.albumHidetagData.timestamp;
+                if (albumAge > 300000) { // 5 minutes expiry
+                    delete global.albumHidetagData;
+                    return m.reply("❌ Data album sudah kadaluarsa. Silakan ulangi proses.");
+                }
+                
+                try {
+                    const [targetId] = text.split("|").map(s => s.trim());
+                    if (!targetId) return m.reply("ID grup tidak valid.");
+
+                    let mentions = [];
+                    try {
+                        const md = await sock.groupMetadata(targetId);
+                        if (md && md.participants) mentions = md.participants.map(p => (p.id || p.jid));
+                    } catch (e) {
+                        mentions = [targetId];
+                    }
+
+                    // Send album using elaina-baileys album feature
+                    const albumData = global.albumHidetagData;
+                    
+                    // For single media, send normally with mentions
+                    if (albumData.messages.length === 1) {
+                        const mediaMsg = albumData.messages[0];
+                        await sock.sendMessage(targetId, {
+                            ...mediaMsg,
+                            caption: `${albumData.text}\n\n📸 Album dari Admin`,
+                            mentions
+                        }, { quoted: FakeChannel });
+                    } else {
+                        // For multiple media, use album messaging
+                        // Note: This is a simplified implementation
+                        // Real album messaging might require different approach
+                        for (let i = 0; i < albumData.messages.length; i++) {
+                            const mediaMsg = albumData.messages[i];
+                            const caption = i === 0 ? `${albumData.text}\n\n📸 Album dari Admin (${i+1}/${albumData.messages.length})` : `📸 Album dari Admin (${i+1}/${albumData.messages.length})`;
+                            
+                            await sock.sendMessage(targetId, {
+                                ...mediaMsg,
+                                caption,
+                                mentions
+                            }, { quoted: FakeChannel });
+                            
+                            // Small delay between messages
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+                    }
+                    
+                    // Clean up
+                    delete global.albumHidetagData;
+                    return m.reply(`✅ Album hidetag berhasil dikirim ke ${targetId}`);
+                    
+                } catch (err) {
+                    console.error("htto-album error:", err);
+                    return m.reply("❌ Gagal mengirim album hidetag. Coba lagi.");
+                }
+            }
+                break;
+
             case "hidetagto-response": {
                 if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
                 if (!global.hidetagMessage) return m.reply("Tidak ada pesan hidetag yang disimpan. Gunakan .hidetagto <pesan> lalu pilih grup.");
@@ -6021,6 +6245,241 @@ https://chat.whatsapp.com/J2Bau7vaI6t7l24t8gN2zr?mode=ems_copy_t
                     return m.reply("Gagal mengirim hidetag ke target. Coba lagi.");
                 }
             }
+
+            case "addalbum": {
+                if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
+                
+                // Initialize album session if not exists
+                if (!global.albumSessions) global.albumSessions = {};
+                if (!global.albumSessions[m.sender]) {
+                    global.albumSessions[m.sender] = {
+                        media: [],
+                        text: "",
+                        timestamp: Date.now()
+                    };
+                }
+                
+                const session = global.albumSessions[m.sender];
+                
+                // Check if replying to media
+                if (m.quoted && m.quoted.mtype && (m.quoted.mtype.includes('image') || m.quoted.mtype.includes('video'))) {
+                    try {
+                        // Use downloadAndSaveMediaMessage to avoid decryption issues
+                        const mediaPath = await sock.downloadAndSaveMediaMessage(m.quoted);
+                        const mediaBuffer = fs.readFileSync(mediaPath);
+                        const mediaType = m.quoted.mtype.includes('image') ? 'image' : 'video';
+                        
+                        // Clean up temp file
+                        fs.unlinkSync(mediaPath);
+                        
+                        session.media.push({
+                            [mediaType]: mediaBuffer,
+                            caption: text || ""
+                        });
+                        
+                        session.timestamp = Date.now();
+                        
+                        let buttons = [
+                            {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "➕ Tambah Media Lagi",
+                                    id: ".addalbum"
+                                })
+                            },
+                            {
+                                name: "quick_reply", 
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "📝 Set Pesan Album",
+                                    id: ".setalbummsg"
+                                })
+                            },
+                            {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "🎯 Kirim Album Hidetag",
+                                    id: ".sendalbum"
+                                })
+                            },
+                            {
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "❌ Reset Album",
+                                    id: ".resetalbum"
+                                })
+                            }
+                        ];
+
+                        let msg = generateWAMessageFromContent(m.chat, {
+                            viewOnceMessage: {
+                                message: {
+                                    messageContextInfo: {
+                                        deviceListMetadata: {},
+                                        deviceListMetadataVersion: 2
+                                    },
+                                    interactiveMessage: {
+                                        body: { text: `✅ Media ditambahkan ke album!\n\n📊 Total media: ${session.media.length}\n💬 Pesan: ${session.text || "Belum diset"}\n\nPilih aksi selanjutnya:` },
+                                        footer: { text: `© Powered By ${global.namaOwner}` },
+                                        nativeFlowMessage: {
+                                            buttons: buttons
+                                        }
+                                    }
+                                }
+                            }
+                        }, { userJid: m.sender, quoted: m });
+                        
+                        return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+                        
+                    } catch (error) {
+                        console.error("Add album error:", error);
+                        // More specific error messages
+                        if (error.message.includes('decrypt')) {
+                            return m.reply("❌ Gagal memproses media. Media mungkin rusak atau tidak valid.");
+                        } else if (error.message.includes('ENOENT')) {
+                            return m.reply("❌ File media tidak ditemukan. Coba reply media yang baru.");
+                        } else {
+                            return m.reply("❌ Gagal menambahkan media ke album. Pastikan media valid dan tidak rusak.");
+                        }
+                    }
+                } else {
+                    return m.reply(`Reply gambar/video dengan ${cmd} untuk menambahkan ke album\n\n📊 Album saat ini: ${session.media.length} media`);
+                }
+            }
+                break;
+
+            case "setalbummsg": {
+                if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
+                if (!global.albumSessions || !global.albumSessions[m.sender]) {
+                    return m.reply("❌ Tidak ada sesi album aktif. Gunakan .addalbum dulu.");
+                }
+                
+                if (!global.albumMessageSetter) global.albumMessageSetter = {};
+                global.albumMessageSetter[m.sender] = true;
+                
+                return m.reply("💬 Kirim pesan yang ingin dijadikan caption album:");
+            }
+                break;
+
+            case "sendalbum": {
+                if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
+                if (!global.albumSessions || !global.albumSessions[m.sender] || global.albumSessions[m.sender].media.length === 0) {
+                    return m.reply("❌ Tidak ada album untuk dikirim. Gunakan .addalbum dulu.");
+                }
+                
+                const session = global.albumSessions[m.sender];
+                
+                // Store album data for htto
+                global.albumHidetagData = {
+                    messages: session.media,
+                    text: session.text || "📸 Album dari Admin",
+                    timestamp: Date.now()
+                };
+                
+                // Show group selection
+                try {
+                    const allGroups = await sock.groupFetchAllParticipating();
+                    const groups = Object.values(allGroups);
+                    if (!groups || groups.length < 1) return m.reply("Tidak ada grup chat.");
+
+                    let rowsGroups = [];
+                    for (let g of groups) {
+                        const name = g.subject || "Unknown";
+                        rowsGroups.push({
+                            title: name,
+                            description: `ID - ${g.id}`,
+                            id: `.htto-album ${g.id}|${name}`
+                        });
+                    }
+
+                    let msg = generateWAMessageFromContent(m.chat, {
+                        viewOnceMessage: {
+                            message: {
+                                messageContextInfo: {
+                                    deviceListMetadata: {},
+                                    deviceListMetadataVersion: 2
+                                },
+                                interactiveMessage: {
+                                    body: { text: `📸 Album siap dikirim!\n\n📊 Total media: ${session.media.length}\n💬 Pesan: ${session.text}\n\nPilih grup untuk mengirim album hidetag:` },
+                                    footer: { text: `© Powered By ${global.namaOwner}` },
+                                    header: { title: "🎯 ALBUM HIDETAG", subtitle: "", hasMediaAttachment: false },
+                                    nativeFlowMessage: {
+                                        buttons: [
+                                            {
+                                                name: "single_select",
+                                                buttonParamsJson: JSON.stringify({
+                                                    title: "Pilih Grup",
+                                                    sections: [{
+                                                        title: "Daftar Grup",
+                                                        rows: rowsGroups
+                                                    }]
+                                                })
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }, { userJid: m.sender, quoted: m });
+                    
+                    return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+                    
+                } catch (error) {
+                    console.error("Send album error:", error);
+                    return m.reply("❌ Gagal menampilkan daftar grup");
+                }
+            }
+                break;
+
+            case "albumhelp":
+            case "helpalbum": {
+                if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
+                
+                let helpText = `📸 *PANDUAN ALBUM HIDETAG*\n\n`;
+                helpText += `*Method 1 - Quick Album (1 Media):*\n`;
+                helpText += `1. Reply gambar/video dengan: .htto Pesan Anda\n`;
+                helpText += `2. Pilih grup dari menu\n`;
+                helpText += `3. Selesai!\n\n`;
+                
+                helpText += `*Method 2 - Multi Album (Banyak Media):*\n`;
+                helpText += `1. Reply foto 1: .addalbum\n`;
+                helpText += `2. Reply foto 2: .addalbum\n`;
+                helpText += `3. Reply foto 3: .addalbum (dst...)\n`;
+                helpText += `4. Set pesan: .setalbummsg\n`;
+                helpText += `5. Kirim pesan yang diinginkan\n`;
+                helpText += `6. Kirim album: .sendalbum\n`;
+                helpText += `7. Pilih grup target\n\n`;
+                
+                helpText += `*Method 3 - Direct Target:*\n`;
+                helpText += `.htto 628xxx@g.us|Pesan langsung\n\n`;
+                
+                helpText += `*Commands Album:*\n`;
+                helpText += `• .addalbum - Tambah media\n`;
+                helpText += `• .setalbummsg - Set pesan\n`;
+                helpText += `• .sendalbum - Kirim album\n`;
+                helpText += `• .resetalbum - Reset session\n`;
+                helpText += `• .albumhelp - Panduan ini\n\n`;
+                
+                helpText += `*Tips:*\n`;
+                helpText += `✅ Session expire 5 menit\n`;
+                helpText += `✅ Support gambar & video\n`;
+                helpText += `✅ Semua member ter-mention\n`;
+                helpText += `✅ Hanya admin yang bisa akses`;
+                
+                return m.reply(helpText);
+            }
+                break;
+
+            case "resetalbum": {
+                if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
+                if (global.albumSessions && global.albumSessions[m.sender]) {
+                    delete global.albumSessions[m.sender];
+                }
+                if (global.albumHidetagData) {
+                    delete global.albumHidetagData;
+                }
+                return m.reply("✅ Album direset. Mulai dari awal dengan .addalbum");
+            }
+                break;
 
             case "welcome": {
                 if (!isOwner && !m.isAdmin) return m.reply(mess.admin);
@@ -9276,6 +9735,62 @@ default:
 
                 // AI & Responder ( Moved from top to prevent double response )
                 if (m.body) {
+                    // Album Message Setter Handler
+                    if (global.albumMessageSetter && global.albumMessageSetter[m.sender]) {
+                        if (global.albumSessions && global.albumSessions[m.sender]) {
+                            global.albumSessions[m.sender].text = m.body;
+                            global.albumSessions[m.sender].timestamp = Date.now();
+                            delete global.albumMessageSetter[m.sender];
+                            
+                            let buttons = [
+                                {
+                                    name: "quick_reply",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: "➕ Tambah Media Lagi",
+                                        id: ".addalbum"
+                                    })
+                                },
+                                {
+                                    name: "quick_reply",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: "🎯 Kirim Album Hidetag",
+                                        id: ".sendalbum"
+                                    })
+                                },
+                                {
+                                    name: "quick_reply",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: "❌ Reset Album",
+                                        id: ".resetalbum"
+                                    })
+                                }
+                            ];
+
+                            let msg = generateWAMessageFromContent(m.chat, {
+                                viewOnceMessage: {
+                                    message: {
+                                        messageContextInfo: {
+                                            deviceListMetadata: {},
+                                            deviceListMetadataVersion: 2
+                                        },
+                                        interactiveMessage: {
+                                            body: { text: `✅ Pesan album berhasil diset!\n\n📊 Total media: ${global.albumSessions[m.sender].media.length}\n💬 Pesan: ${m.body}\n\nPilih aksi selanjutnya:` },
+                                            footer: { text: `© Powered By ${global.namaOwner}` },
+                                            nativeFlowMessage: {
+                                                buttons: buttons
+                                            }
+                                        }
+                                    }
+                                }
+                            }, { userJid: m.sender, quoted: m });
+                            
+                            return sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
+                        } else {
+                            delete global.albumMessageSetter[m.sender];
+                            return m.reply("❌ Sesi album tidak ditemukan. Mulai dari awal dengan .addalbum");
+                        }
+                    }
+                    
                     // Skip AI if user is in registration session
                     if (global.registrationSession && global.registrationSession[m.sender]) {
                         // Do nothing, let registration handler process it
