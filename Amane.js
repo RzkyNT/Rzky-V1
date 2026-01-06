@@ -8,7 +8,6 @@ const ssh2 = require("ssh2");
 const path = require("path");
 const Yts = require("yt-search");
 const os = require('os');
-const uploadToCloudku = require("./storage/upload");
 const tiktok = require("./storage/tiktok.js");
 const remini = require("./storage/remini.js");
 const youtube = require("./storage/youtube.js");
@@ -17,7 +16,7 @@ const geminiChat = require("./storage/gemini.js");
 const messageQueue = require("./lib/messageQueue.js");
 const orderReminder = require("./lib/orderReminder.js");
 const { exec, spawn, execSync } = require('child_process');
-const { prepareWAMessageMedia, generateWAMessageFromContent } = require("baileys");
+const { prepareWAMessageMedia, generateWAMessageFromContent, downloadContentFromMessage } = require("baileys");
 const LoadDataBase = require("./storage/LoadDatabase.js");
 
 // Clock Reaction System
@@ -11034,17 +11033,48 @@ Jangan bilang makasih berlebihan ya!! Bukan karena aku perhatian kok!! >///<`
                 break;
                 case "rvo": case "readviewonce": {
                     if (!m.quoted) return m.reply(`Balas pesan sekali lihat dengan ketik *${cmd}*`)
-                    let msg = m.quoted.message
-                    if (!msg) return m.reply("Pesan tidak valid!")
-                    if (!msg.viewOnce && m.quoted.mtype !== "viewOnceMessageV2") return m.reply("Pesan itu bukan sekali lihat!")
-                        let mesages = m.quoted.message?.videoMessage || m.quoted.message?.imageMessage || m.quoted.message?.audioMessage || ""
-                        let type = m.quoted.message?.imageMessage ? "image" : m.quoted.message?.videoMessage ? "video" : m.quoted.message?.audioMessage ? "audio" : ""
-                    let media = await downloadContentFromMessage(mesages, type)
+                    
+                    // Debug untuk melihat struktur m.quoted
+                    console.log("Debug RVO - m.quoted keys:", Object.keys(m.quoted))
+                    console.log("Debug RVO - m.quoted.mtype:", m.quoted.mtype)
+                    console.log("Debug RVO - m.quoted.viewOnce:", m.quoted.viewOnce)
+                    console.log("Debug RVO - m.quoted.mimetype:", m.quoted.mimetype)
+                    
+                    // Cek apakah ini pesan view once berdasarkan property viewOnce
+                    if (!m.quoted.viewOnce) {
+                        return m.reply("Pesan itu bukan sekali lihat!")
+                    }
+                    
+                    // Untuk pesan view once yang sudah di-flatten, gunakan m.quoted langsung
+                    let mesages = m.quoted
+                    let type = ""
+                    
+                    // Tentukan tipe berdasarkan mtype atau mimetype
+                    if (m.quoted.mtype === "imageMessage" || (m.quoted.mimetype && m.quoted.mimetype.startsWith("image"))) {
+                        type = "image"
+                    } else if (m.quoted.mtype === "videoMessage" || (m.quoted.mimetype && m.quoted.mimetype.startsWith("video"))) {
+                        type = "video"
+                    } else if (m.quoted.mtype === "audioMessage" || (m.quoted.mimetype && m.quoted.mimetype.startsWith("audio"))) {
+                        type = "audio"
+                    } else if (m.quoted.mimetype) {
+                        type = m.quoted.mimetype.split("/")[0]
+                    }
+                    
+                    console.log("Debug RVO - type:", type)
+                    console.log("Debug RVO - mesages has url:", !!mesages.url)
+                    
+                    if (!type) {
+                        return m.reply("Tidak dapat menentukan tipe media!")
+                    }
+                    
+                    try {
+                        let media = await downloadContentFromMessage(mesages, type)
                         let buffer = Buffer.from([])
                         for await (const chunk of media) {
                             buffer = Buffer.concat([buffer, chunk])
                         }
                         const cap = mesages?.caption ? `*Caption:* ${mesages.caption}` : ""
+                        
                         if (/video/.test(type)) {
                             await sock.sendMessage(m.chat, {video: buffer, caption: cap}, {quoted: m})
                         } else if (/image/.test(type)) {
@@ -11052,8 +11082,11 @@ Jangan bilang makasih berlebihan ya!! Bukan karena aku perhatian kok!! >///<`
                         } else if (/audio/.test(type)) {
                             await sock.sendMessage(m.chat, {audio: buffer, mimetype: "audio/mpeg", ptt: true}, {quoted: m})
                         }
-                        
+                    } catch (error) {
+                        console.error("Debug RVO - Error:", error)
+                        m.reply(`Error saat memproses view once: ${error.message}`)
                     }
+                }
                 break
                 case "remini2": case "hd2": {
     let quoted = m.quoted ? m.quoted : m;
@@ -11745,7 +11778,14 @@ BUTTON TRIGGERS (tambahkan di akhir respon):
 Pertanyaan User: "${m.body}"
 Jawablah sebagai MinBot:`;
 
-                                const result = await geminiChat(prompt);
+                                // Coba Gemini dulu, jika gagal fallback ke OpenAI
+                                let result;
+                                try {
+                                    result = await geminiChat(prompt);
+                                } catch (geminiError) {
+                                    console.log("Gemini failed, trying OpenAI fallback...");
+                                    result = await aiChat("Anda adalah asisten AI untuk Depot Minhaqua. Jawab dengan sopan dan singkat.", m.body, "llama3-8b-8192");
+                                }
 
                                 // Parse response for natural language orders
                                 let finalBody = result;

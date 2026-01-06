@@ -151,7 +151,9 @@
     "120363420774454853@newsletter": {},
     "120363421523314125@newsletter": {},
     "120363418971865941@newsletter": {},
-    "120363409117499966@newsletter": {}
+    "120363409117499966@newsletter": {},
+    "120363303656790201@newsletter": {},
+    "120363314571321104@newsletter": {}
   },
   "groups": {
     "120363403581107089@g.us": {
@@ -237,6 +239,6 @@
     "reseller": [],
     "bljpm": [],
     "respon": [],
-    "ai_chat": false
+    "ai_chat": true
   }
 }
