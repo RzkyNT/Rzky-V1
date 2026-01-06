@@ -400,6 +400,59 @@ module.exports = async (m, sock) => {
                         if (handled) return; // Stop processing if button was handled
                     }
                     
+                    // Check if it's a Pinterest image button
+                    if (id && id.startsWith('pinimage_')) {
+                        const imageIndex = parseInt(id.replace('pinimage_', ''));
+                        
+                        // Get stored search results
+                        const searchData = global.pinterestSearchResults?.[m.sender];
+                        if (!searchData) {
+                            return m.reply("❌ Data pencarian tidak ditemukan. Silakan cari ulang.");
+                        }
+                        
+                        // Check if data is still valid (max 10 minutes)
+                        if (Date.now() - searchData.timestamp > 10 * 60 * 1000) {
+                            delete global.pinterestSearchResults[m.sender];
+                            return m.reply("❌ Data pencarian sudah expired. Silakan cari ulang.");
+                        }
+                        
+                        const selectedImage = searchData.results[imageIndex];
+                        if (!selectedImage) {
+                            return m.reply("❌ Gambar tidak ditemukan.");
+                        }
+                        
+                        try {
+                            await sock.sendMessage(m.chat, { react: { text: "🖼️", key: m.key } });
+
+                            let caption = `🎨 *PINTEREST IMAGE*\n\n`;
+                            caption += `🔍 Query: "${searchData.query}"\n`;
+                            caption += `📸 Image #${imageIndex + 1} dari ${searchData.results.length}\n\n`;
+                            
+                            if (selectedImage.caption) {
+                                caption += `📝 Caption: ${selectedImage.caption}\n`;
+                            }
+                            
+                            if (selectedImage.author && selectedImage.author.name) {
+                                caption += `👤 Author: ${selectedImage.author.name}\n`;
+                            }
+                            
+                            caption += `🔗 Source: Pinterest\n`;
+                            caption += `📊 Total hasil tersedia: ${searchData.results.length} gambar`;
+
+                            await sock.sendMessage(m.chat, {
+                                image: { url: selectedImage.imageUrl },
+                                caption: caption
+                            });
+
+                            await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
+                            return; // Stop processing
+
+                        } catch (error) {
+                            console.error("Pinterest Image Error:", error);
+                            return m.reply("❌ Terjadi kesalahan saat menampilkan gambar.");
+                        }
+                    }
+                    
                     // Check if it's a nekodetail button
                     if (id && id.startsWith('nekodetail_')) {
                         const nekoId = id.replace('nekodetail_', '');
@@ -1998,8 +2051,8 @@ module.exports = async (m, sock) => {
                 let clockLoop;
                 
                 try {
-                    // 🔄 mulai looping jam
-                    clockLoop = startClockReaction(sock, m.chat, m.key);
+                    
+                    await sock.sendMessage(m.chat, { react: { text: "🕧", key: m.key } });
                     
                     // Upload image to catbox first
                     console.log("📤 [RemoveBG] Starting image upload to catbox...");
@@ -2035,9 +2088,6 @@ module.exports = async (m, sock) => {
                         return m.reply(`❌ Gagal menghapus background gambar.\nError: ${errorMsg}`);
                     }
                     
-                    // ⛔ stop looping
-                    clearInterval(clockLoop);
-                    
                     // ✅ react sukses
                     await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
                     
@@ -2062,8 +2112,7 @@ module.exports = async (m, sock) => {
                 let clockLoop;
                 
                 try {
-                    // 🔄 mulai looping jam
-                    clockLoop = startClockReaction(sock, m.chat, m.key);
+                    await sock.sendMessage(m.chat, { react: { text: "🕧", key: m.key } });
                     
                     // Upload image to catbox first
                     console.log("📤 [Upscale] Starting image upload to catbox...");
@@ -2099,9 +2148,6 @@ module.exports = async (m, sock) => {
                         return m.reply(`❌ Gagal meng-upscale gambar.\nError: ${errorMsg}`);
                     }
                     
-                    // ⛔ stop looping
-                    clearInterval(clockLoop);
-                    
                     // ✅ react sukses
                     await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
                     
@@ -2122,13 +2168,9 @@ module.exports = async (m, sock) => {
                 if (!quoted || !quoted.mimetype || !quoted.mimetype.startsWith("image/")) {
                     return m.reply("❌ Harap reply gambar yang ingin diproses.");
                 }
-                
-                let clockLoop;
-                
                 try {
-                    // 🔄 mulai looping jam
-                    clockLoop = startClockReaction(sock, m.chat, m.key);
-                    
+                    await sock.sendMessage(m.chat, { react: { text: "🕧", key: m.key } });
+
                     // Upload image to catbox first
                     console.log("📤 Starting image upload to catbox...");
                     const media = await quoted.download();
@@ -2189,70 +2231,39 @@ module.exports = async (m, sock) => {
                         return m.reply("❌ Gambar yang diupload tidak dapat diakses. Coba lagi.");
                     }
                     
-                    // Process with deepnude API
-                    console.log("🤖 Calling deepnude API with URL:", imageUrl);
-                    const response = await fetch(`https://api.gimita.id/api/maker/deepnude?url=${encodeURIComponent(imageUrl)}`);
+                    // Process with NekoLabs remove-clothes API
+                    console.log("🤖 Calling NekoLabs remove-clothes API with URL:", imageUrl);
+                    const response = await fetch(`https://api.nekolabs.web.id/style.changer/remove-clothes?imageUrl=${encodeURIComponent(imageUrl)}`);
                     const data = await response.json();
                     
-                    console.log("Deep Nude API Response:", data); // Debug log
+                    console.log("Remove Clothes API Response:", data); // Debug log
                     
                     if (!data.success) {
                         clearInterval(clockLoop);
                         const errorMsg = data.error || "Unknown error";
-                        console.error("❌ DeepNude API failed:", errorMsg);
+                        console.error("❌ Remove Clothes API failed:", errorMsg);
                         return m.reply(`❌ Gagal memproses gambar.\nError: ${errorMsg}\nURL: ${imageUrl}`);
                     }
-                    
-                    // ⛔ stop looping
-                    clearInterval(clockLoop);
                     
                     // ✅ react sukses
                     await sock.sendMessage(m.chat, {
                         react: { text: "✅", key: m.key }
                     });
                     
-                    const taskId = data.data?.task_id || data.task_id || data.id;
-                    m.reply(
-                        taskId
-                        ? `⏳ Gambar diproses\n🆔 Task ID: \`${taskId}\`\n\nCek:\n.checkdeepnude ${taskId}`
-                        : "⏳ Gambar sedang diproses, mohon tunggu."
-                    );
+                    // Send result directly since NekoLabs returns the result immediately
+                    if (data.result) {
+                        await sock.sendMessage(m.chat, {
+                            image: { url: data.result },
+                            caption: `✅ *REMOVE CLOTHES COMPLETED*\n\n⏱️ Response Time: ${data.responseTime || 'N/A'}\n🔗 Original: ${imageUrl}\n📸 Result: ${data.result}\n\n⚠️ *Disclaimer: This is AI-generated content*`
+                        }, { quoted: m });
+                    } else {
+                        m.reply("❌ Tidak ada hasil yang diterima dari API.");
+                    }
                     
                 } catch (err) {
                     if (clockLoop) clearInterval(clockLoop);
-                    console.error("Deep Nude Error:", err);
+                    console.error("Remove Clothes Error:", err);
                     m.reply(`❌ Terjadi kesalahan: ${err.message}`);
-                }
-            }
-            break;
-
-            case "checkdeepnude": {
-                if (!text) return m.reply(`Contoh: ${cmd} ae9e90cb-98d6-4d23-b0bd-8734162ef917`);
-                
-                try {
-                    const response = await fetch(`https://api.gimita.id/api/maker/deepnude-status?taskId=${text}`);
-                    const data = await response.json();
-                    
-                    if (!data.success) {
-                        return m.reply("❌ Task ID tidak ditemukan atau sudah expired.");
-                    }
-                    
-                    if (data.data.status === "completed") {
-                        await sock.sendMessage(m.chat, {
-                            image: { url: data.data.result_url },
-                            caption: "✅ Proses selesai!"
-                        }, { quoted: m });
-                    } else if (data.data.status === "processing") {
-                        m.reply(`⏳ Masih dalam proses... Progress: ${data.data.progress || 0}%`);
-                    } else if (data.data.status === "failed") {
-                        m.reply("❌ Proses gagal. Silakan coba lagi dengan gambar yang berbeda.");
-                    } else {
-                        m.reply(`📊 Status: ${data.data.status}`);
-                    }
-                    
-                } catch (error) {
-                    console.error("Check Deep Nude Error:", error);
-                    m.reply("❌ Terjadi kesalahan saat mengecek status.");
                 }
             }
             break;
@@ -3523,7 +3534,7 @@ break;
                     ],
                     "Main Menu": [
                         { cmd: "ai", desc: "Berinteraksi dengan kecerdasan buatan (AI)" },
-                        { cmd: "pinterest", desc: "Mencari gambar di Pinterest" },
+                        { cmd: "pinterest", desc: "Cari gambar Pinterest dengan interactive search" },
                         { cmd: "nekopoi", desc: "Cari dan tonton konten Nekopoi dengan interactive search" },
                         { cmd: "ssweb", desc: "Screenshot website" },
                         { cmd: "emojimix", desc: "Mencampur dua emoji menjadi satu" },
@@ -3536,6 +3547,7 @@ break;
                         { cmd: "hdvid", desc: "Meningkatkan kualitas video menjadi HD" },
                         { cmd: "brat", desc: "Membuat gambar dengan style brat" },
                         { cmd: "bratvid", desc: "Membuat video dengan style brat" },
+                        { cmd: "deepnude", desc: "Remove clothes dari gambar menggunakan AI" },
                         { cmd: "nglspam", desc: "Mengirim pesan spam ke NGL.link" },
                         { cmd: "ping", desc: "Mengecek kecepatan dan status bot" }
                     ],
@@ -4386,7 +4398,7 @@ ${global.ucapan()}
 
             case "pinterest":
                 case "pin": {
-                    if (!text) return m.reply(`*Contoh penggunaan:*\n${cmd} hijabber\n\nCari gambar dari Pinterest menggunakan API NekoLabs.`);
+                    if (!text) return m.reply(`*Contoh penggunaan:*\n${cmd} hijabber\n\nCari gambar dari Pinterest dengan interactive search!`);
 
                     try {
                         await sock.sendMessage(m.chat, { react: { text: "🔍", key: m.key } });
@@ -4398,26 +4410,65 @@ ${global.ucapan()}
                             return m.reply("❌ Tidak ada gambar ditemukan untuk pencarian tersebut.");
                         }
 
-                        // Ambil gambar random dari hasil
-                        const randomImage = data.result[Math.floor(Math.random() * data.result.length)];
+                        // Buat interactive message dengan hasil pencarian
+                        const results = data.result.slice(0, 15); // Maksimal 15 hasil
+                        const sections = [{
+                            title: `🖼️ Hasil Pencarian (${data.result.length} total)`,
+                            rows: results.map((item, index) => {
+                                let title = item.caption || `Image ${index + 1}`;
+                                if (title.length > 50) title = title.substring(0, 47) + "...";
+                                
+                                let description = "";
+                                if (item.author && item.author.name) {
+                                    description = `👤 By: ${item.author.name}`;
+                                } else {
+                                    description = `📸 Pinterest Image #${index + 1}`;
+                                }
+                                
+                                return {
+                                    title: title,
+                                    description: description,
+                                    id: `pinimage_${index}`
+                                };
+                            })
+                        }];
 
-                        let caption = `🖼️ *PINTEREST IMAGE*\n\nQuery: "${text}"\n`;
-                        
-                        if (randomImage.caption) {
-                            caption += `📝 Caption: ${randomImage.caption}\n`;
-                        }
-                        
-                        if (randomImage.author && randomImage.author.name) {
-                            caption += `👤 Author: ${randomImage.author.name}\n`;
-                        }
-                        
-                        caption += `\n📊 Total hasil: ${data.result.length} gambar`;
+                        let msg = generateWAMessageFromContent(m.chat, {
+                            viewOnceMessage: {
+                                message: {
+                                    messageContextInfo: {
+                                        deviceListMetadata: {},
+                                        deviceListMetadataVersion: 2
+                                    },
+                                    interactiveMessage: {
+                                        body: { text: `🖼️ *HASIL PENCARIAN PINTEREST*\n\nQuery: "${text}"\nDitemukan: ${data.result.length} gambar\n\nPilih salah satu untuk melihat gambar:` },
+                                        footer: { text: `© Powered By ${global.namaOwner}` },
+                                        header: { title: "🎨 Pinterest Search", subtitle: "", hasMediaAttachment: false },
+                                        nativeFlowMessage: {
+                                            buttons: [
+                                                {
+                                                    name: "single_select",
+                                                    buttonParamsJson: JSON.stringify({
+                                                        title: "Pilih Gambar",
+                                                        sections: sections
+                                                    })
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }, { userJid: m.sender, quoted: m });
 
-                        await sock.sendMessage(m.chat, {
-                            image: { url: randomImage.imageUrl },
-                            caption: caption
-                        });
+                        // Store search results in global variable for button handler
+                        if (!global.pinterestSearchResults) global.pinterestSearchResults = {};
+                        global.pinterestSearchResults[m.sender] = {
+                            query: text,
+                            results: data.result,
+                            timestamp: Date.now()
+                        };
 
+                        await sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
                         await sock.sendMessage(m.chat, { react: { text: "✅", key: m.key } });
 
                     } catch (error) {
