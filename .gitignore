@@ -1,3 +1,30 @@
 /Session
 /Session/creds.json
 Original/setting.js
+
+# Environment variables - JANGAN COMMIT!
+.env
+.env.local
+.env.production
+.env.staging
+
+# API Keys dan credentials
+config/keys.js
+*.key
+*.pem
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+Tmp/
+
+# Node modules
+node_modules/
+
+# Database files
+*.db
+*.sqlite

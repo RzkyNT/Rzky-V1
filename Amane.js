@@ -85,6 +85,13 @@ module.exports = async (m, sock) => {
         const botNumber = await sock.user.id.split(":")[0] + "@s.whatsapp.net"
         const isOwner = global.owner + "@s.whatsapp.net" == m.sender || m.sender == botNumber || db.settings.developer.includes(m.sender)
         const isReseller = db.settings.reseller.includes(m.sender)
+        
+        // Initialize supervisor settings if not exists
+        if (!db.settings.supervisor) db.settings.supervisor = [];
+        if (!db.settings.supervisorMode) db.settings.supervisorMode = false;
+        
+        const isSupervisor = db.settings.supervisor.includes(m.sender)
+        const canUseSupervisorCommands = isOwner || (isSupervisor && db.settings.supervisorMode)
         m.isGroup = m.chat.endsWith('g.us');
         m.metadata = {};
         m.isAdmin = false;
@@ -10006,7 +10013,7 @@ break
 
             case "listpanel":
             case "listserver": {
-                if (!isOwner && !isReseller) {
+                if (!isOwner && !isReseller && !canUseSupervisorCommands) {
                     return m.reply(`Fitur ini hanya untuk di dalam grup reseller panel`);
                 }
 
@@ -10443,6 +10450,174 @@ break
 
                 global.db.settings.developer = global.db.settings.developer.filter(i => i !== input);
                 return m.reply(`Berhasil menghapus owner ✅\n- ${input.split("@")[0]}`);
+            }
+                break;
+
+            case "listowner": case "listown": {
+                const Own = global.db.settings.developer;
+                if (Own.length < 1) return m.reply("Tidak ada owner bot.");
+                let teks = `*List Owner Bot:*\n\n`;
+                for (let i of Own) {
+                    teks += `• ${i.split("@")[0]}\n`;
+                }
+                return m.reply(teks);
+            }
+                break;
+
+            // ===== SUPERVISOR COMMANDS =====
+            case "addsupervisor": case "addsuper": {
+                if (!isOwner) return m.reply(mess.owner);
+
+                const input = m.quoted
+                    ? m.quoted.sender
+                    : m.mentionedJid[0]
+                        ? m.mentionedJid[0]
+                        : text
+                            ? text.replace(/[^0-9]/g, "") + "@s.whatsapp.net"
+                            : null;
+
+                if (!input) return m.reply(`*Contoh penggunaan :*\n${cmd} 6285XXX`);
+
+                const jid = input.split("@")[0];
+                const botNumber = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+
+                if (jid == global.owner || input == botNumber)
+                    return m.reply(`Nomor ${jid} adalah owner bot, tidak perlu menjadi supervisor.`);
+
+                if (global.db.settings.developer.includes(input))
+                    return m.reply(`Nomor ${jid} adalah owner bot, tidak perlu menjadi supervisor.`);
+
+                if (!global.db.settings.supervisor) global.db.settings.supervisor = [];
+                
+                if (global.db.settings.supervisor.includes(input))
+                    return m.reply(`Nomor ${jid} sudah menjadi supervisor.`);
+
+                global.db.settings.supervisor.push(input);
+                return m.reply(`✅ Berhasil menambah supervisor\n• ${jid}`);
+            }
+                break;
+
+            case "delsupervisor": case "delsuper": {
+                if (!isOwner) return m.reply(mess.owner);
+
+                const input = m.quoted
+                    ? m.quoted.sender
+                    : m.mentionedJid[0]
+                        ? m.mentionedJid[0]
+                        : text
+                            ? text.replace(/[^0-9]/g, "") + "@s.whatsapp.net"
+                            : null;
+
+                if (!input) return m.reply(`*Contoh penggunaan :*\n${cmd} 6285XXX`);
+
+                if (input.toLowerCase() === "all") {
+                    if (!global.db.settings.supervisor) global.db.settings.supervisor = [];
+                    global.db.settings.supervisor = [];
+                    return m.reply("✅ Berhasil menghapus semua supervisor");
+                }
+
+                if (!global.db.settings.supervisor) global.db.settings.supervisor = [];
+                
+                if (!global.db.settings.supervisor.includes(input))
+                    return m.reply("❌ Nomor tidak ditemukan dalam daftar supervisor!");
+
+                global.db.settings.supervisor = global.db.settings.supervisor.filter(i => i !== input);
+                return m.reply(`✅ Berhasil menghapus supervisor\n• ${input.split("@")[0]}`);
+            }
+                break;
+
+            case "listsupervisor": case "listsuper": {
+                if (!global.db.settings.supervisor) global.db.settings.supervisor = [];
+                const supervisors = global.db.settings.supervisor;
+                
+                if (supervisors.length < 1) return m.reply("📭 Tidak ada supervisor yang terdaftar.");
+                
+                let teks = `📋 *List Supervisor Bot:*\n\n`;
+                for (let i of supervisors) {
+                    teks += `• ${i.split("@")[0]}\n`;
+                }
+                teks += `\n*Total:* ${supervisors.length} supervisor`;
+                return m.reply(teks);
+            }
+                break;
+
+            case "supervisor": {
+                if (!isOwner) return m.reply(mess.owner);
+                if (!text) return m.reply(`*Contoh penggunaan:*\n${cmd} on\n${cmd} off\n${cmd} status`);
+
+                const input = text.toLowerCase();
+                
+                if (input === "on") {
+                    if (!global.db.settings.supervisorMode) global.db.settings.supervisorMode = false;
+                    if (global.db.settings.supervisorMode) return m.reply("⚠️ Mode supervisor sudah aktif.");
+                    
+                    global.db.settings.supervisorMode = true;
+                    return m.reply("✅ Mode supervisor berhasil diaktifkan.\n\n*Fitur yang aktif:*\n• Supervisor dapat menggunakan command tertentu\n• Notifikasi ke supervisor untuk aktivitas penting");
+                } else if (input === "off") {
+                    if (!global.db.settings.supervisorMode) global.db.settings.supervisorMode = false;
+                    if (!global.db.settings.supervisorMode) return m.reply("⚠️ Mode supervisor sudah nonaktif.");
+                    
+                    global.db.settings.supervisorMode = false;
+                    return m.reply("🔴 Mode supervisor berhasil dinonaktifkan.");
+                } else if (input === "status") {
+                    if (!global.db.settings.supervisor) global.db.settings.supervisor = [];
+                    if (!global.db.settings.supervisorMode) global.db.settings.supervisorMode = false;
+                    
+                    const supervisors = global.db.settings.supervisor;
+                    const mode = global.db.settings.supervisorMode ? "🟢 Aktif" : "🔴 Nonaktif";
+                    
+                    let teks = `📊 *Status Supervisor System*\n\n`;
+                    teks += `🔧 Mode: ${mode}\n`;
+                    teks += `👥 Total Supervisor: ${supervisors.length}\n\n`;
+                    
+                    if (supervisors.length > 0) {
+                        teks += `📋 *Daftar Supervisor:*\n`;
+                        for (let i of supervisors) {
+                            teks += `• ${i.split("@")[0]}\n`;
+                        }
+                    } else {
+                        teks += `📭 Belum ada supervisor yang terdaftar.`;
+                    }
+                    
+                    return m.reply(teks);
+                } else {
+                    return m.reply(`❌ Input tidak valid!\n\n*Penggunaan:*\n• ${cmd} on - Aktifkan mode supervisor\n• ${cmd} off - Nonaktifkan mode supervisor\n• ${cmd} status - Lihat status supervisor`);
+                }
+            }
+                break;
+
+            // Command khusus untuk supervisor
+            case "botstats": case "stats": {
+                if (!canUseSupervisorCommands) return m.reply("❌ Command ini hanya untuk Owner atau Supervisor!");
+                
+                const os = require('os');
+                const uptime = process.uptime();
+                const hours = Math.floor(uptime / 3600);
+                const minutes = Math.floor((uptime % 3600) / 60);
+                const seconds = Math.floor(uptime % 60);
+                
+                const totalUsers = Object.keys(global.db.users || {}).length;
+                const totalGroups = Object.keys(global.db.groups || {}).length;
+                const totalResellers = (global.db.settings.reseller || []).length;
+                const totalSupervisors = (global.db.settings.supervisor || []).length;
+                
+                let teks = `📊 *Bot Statistics*\n\n`;
+                teks += `🤖 *Bot Info:*\n`;
+                teks += `• Uptime: ${hours}h ${minutes}m ${seconds}s\n`;
+                teks += `• Mode: ${sock.public ? "Public" : "Self"}\n`;
+                teks += `• Platform: ${os.platform()}\n\n`;
+                
+                teks += `👥 *Users & Groups:*\n`;
+                teks += `• Total Users: ${totalUsers}\n`;
+                teks += `• Total Groups: ${totalGroups}\n`;
+                teks += `• Total Resellers: ${totalResellers}\n`;
+                teks += `• Total Supervisors: ${totalSupervisors}\n\n`;
+                
+                teks += `💾 *System Info:*\n`;
+                teks += `• Memory Usage: ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB\n`;
+                teks += `• CPU: ${os.cpus()[0].model}\n`;
+                
+                return m.reply(teks);
             }
                 break;
 

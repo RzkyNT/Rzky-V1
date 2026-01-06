@@ -1,4 +1,14 @@
 const fetch = require("node-fetch");
+const ENV = require("../config/env.js");
+
+let currentKeyIndex = 0;
+
+function getNextGeminiKey() {
+    if (!ENV.GEMINI_KEYS || ENV.GEMINI_KEYS.length === 0) return null;
+    const key = ENV.GEMINI_KEYS[currentKeyIndex];
+    currentKeyIndex = (currentKeyIndex + 1) % ENV.GEMINI_KEYS.length;
+    return key;
+}
 
 async function geminiChat(text, sessionId = "default") {
   let sankaFailed = false;
@@ -13,7 +23,7 @@ async function geminiChat(text, sessionId = "default") {
     
     // Encode parameters untuk URL
     const params = new URLSearchParams({
-      apikey: "planaai",
+      apikey: ENV.SANKA_API_KEY,
       text: text,
       prompt: defaultPrompt,
       sessions: sessionId
@@ -65,7 +75,7 @@ async function geminiChat(text, sessionId = "default") {
       const davidUrl = "https://apis.davidcyriltech.my.id/ai/chatbot";
       const davidParams = new URLSearchParams({
         query: `Kamu adalah asisten AI yang cerdas dan membantu. Jawab dengan sopan dan informatif.\n\nUser: ${text}`,
-        apikey: ""
+        apikey: ENV.DAVID_CYRIL_API_KEY
       });
       
       const davidFullUrl = `${davidUrl}?${davidParams.toString()}`;
@@ -118,7 +128,7 @@ async function geminiChat(text, sessionId = "default") {
       const ferdevUrl = "https://api.ferdev.my.id/ai/gemini";
       const ferdevParams = new URLSearchParams({
         prompt: `Kamu adalah asisten AI yang cerdas dan membantu. Jawab dengan sopan dan informatif.\n\nUser: ${text}`,
-        apikey: "keysita_47JX47JX"
+        apikey: ENV.FERDEV_API_KEY
       });
       
       const ferdevFullUrl = `${ferdevUrl}?${ferdevParams.toString()}`;

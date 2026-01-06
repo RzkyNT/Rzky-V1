@@ -5,13 +5,17 @@ Hapus?! Gak gua kasih lagi yang no enc!!
 const chalk = require("chalk");
 const fs = require("fs");
 
-global.owner = "62895602416781"
-global.wame = "wa.me/62895602416781"
-global.version = "4.0.0"
+// Load environment variables
+const ENV = require("./config/env.js");
+
+// Bot Configuration dari environment variables
+global.owner = ENV.BOT_OWNER
+global.wame = `wa.me/${ENV.BOT_OWNER}`
+global.version = ENV.BOT_VERSION
 global.dev = "IG: Rzky.NT"
-global.namaOwner = "RzkyNT"
-global.supervisor = ["62895602416781"] // ganti dengan nomor supervisor
-global.mode_public = true
+global.namaOwner = ENV.BOT_NAME
+global.supervisor = ["62895602416782"] // ganti dengan nomor supervisor
+global.mode_public = ENV.BOT_MODE
 
 global.linkSaluran = "https://whatsapp.com/channel/0029Vb5RfCe7z4knVfZ6Ku2v"
 global.linkChannel = "https://whatsapp.com/channel/0029Vb5RfCe7z4knVfZ6Ku2v"
@@ -29,30 +33,17 @@ global.rekBri = "Tidak Tersedia"
 global.JedaPushkontak = 8000
 global.JedaJpm = 7000
 
-global.egg = "15" // Isi id egg
-global.nestid = "5" // Isi id nest
-global.loc = "1" // Isi id location
-global.domain = 'https://neonprivateamane.kantinvps.my.id'
-global.apikey = 'ptla_nfxGfDEtqPKTvtEmiybbvHqfMnaTqhUCVLbMsEeAVoj' // Isi api ptla
-global.capikey = 'ptlc_OFai7puWJNdI9yJDKovikt3fo5sD9bCOnu5cOCIK4jV' // Isi api ptlc
+// Panel Configuration dari environment variables
+global.egg = ENV.EGG_ID
+global.nestid = ENV.NEST_ID
+global.loc = ENV.LOCATION_ID
+global.domain = ENV.PANEL_DOMAIN
+global.apikey = ENV.PTERODACTYL_API_KEY
+global.capikey = ENV.PTERODACTYL_CLIENT_KEY
 global.Dev = "IG: Rzky.NT"
 
-// Gemini API Keys (Reshuffle System)
-global.geminiKeys = [
-  "AIzaSyBkC5_KaurUfy2Kykt55G-fpsNM-sUuPj8",
-  "AIzaSyDU--l_sSD67KedbEhLU1-Nq64hXd9Lcf0",
-  "AIzaSyA04FMmQZxqtU98wk4bzl76o7po4egKTxs",
-  "AIzaSyD91AbdKvtKf2wLcecQyjdopzEvroQ_HQ4",
-  "AIzaSyDa33G3VqMxazDIrLw8aigfkWt2g2GWNAY",
-  "AIzaSyBX9d1CL73Vvrwemfy9N_BFwNrGxntsnIw",
-  "AIzaSyCITwoJ8mYfoInINvO3kD6c3nLhgOghge0",
-  "AIzaSyCWc7vDZaH9vb9YPiuwRFufq9AoAYzTMMs",
-  "AIzaSyCflyRXMm_2bTtxxgKW4OyECVYM3GhNfmQ",
-  "AIzaSyCgGeDr0iL-s65bzrtRX5pPOTvCANTlb7I",
-  "AIzaSyBUecUJAgWVV9RmIbzEm6I8beGbeuklN60",
-  "AIzaSyBFPAY2wm1AJr67z86bcqUSAqPlkRDGhEM"
-];
-
+// Gemini API Keys dari environment variables (untuk backward compatibility)
+global.geminiKeys = ENV.GEMINI_KEYS
 
 global.subdomain = {
   "skypedia.qzz.io": {
@@ -85,6 +76,13 @@ global.subdomain = {
   }
 }
 
+// Validate API keys on startup
+console.log(chalk.blue("🔐 Validating API Keys..."));
+if (ENV.validateApiKeys()) {
+    console.log(chalk.green("✅ All API keys validated successfully"));
+} else {
+    console.log(chalk.yellow("⚠️ Some API keys are missing - check console warnings above"));
+}
 
 let file = require.resolve(__filename) 
 fs.watchFile(file, () => {
