@@ -8,6 +8,7 @@ const ssh2 = require("ssh2");
 const path = require("path");
 const Yts = require("yt-search");
 const os = require('os');
+const uploadToCloudku = require("./storage/upload");
 const tiktok = require("./storage/tiktok.js");
 const remini = require("./storage/remini.js");
 const youtube = require("./storage/youtube.js");
@@ -11034,6 +11035,7 @@ Jangan bilang makasih berlebihan ya!! Bukan karena aku perhatian kok!! >///<`
                 case "rvo": case "readviewonce": {
                     if (!m.quoted) return m.reply(`Balas pesan sekali lihat dengan ketik *${cmd}*`)
                     let msg = m.quoted.message
+                    if (!msg) return m.reply("Pesan tidak valid!")
                     if (!msg.viewOnce && m.quoted.mtype !== "viewOnceMessageV2") return m.reply("Pesan itu bukan sekali lihat!")
                         let mesages = m.quoted.message?.videoMessage || m.quoted.message?.imageMessage || m.quoted.message?.audioMessage || ""
                         let type = m.quoted.message?.imageMessage ? "image" : m.quoted.message?.videoMessage ? "video" : m.quoted.message?.audioMessage ? "audio" : ""
