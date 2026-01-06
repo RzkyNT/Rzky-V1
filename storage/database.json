@@ -153,7 +153,17 @@
     "120363418971865941@newsletter": {},
     "120363409117499966@newsletter": {},
     "120363303656790201@newsletter": {},
-    "120363314571321104@newsletter": {}
+    "120363314571321104@newsletter": {},
+    "62895329245804@s.whatsapp.net": {},
+    "628983665952@s.whatsapp.net": {},
+    "47953377017921@lid": {},
+    "6289677849842@s.whatsapp.net": {},
+    "6282310594059@s.whatsapp.net": {},
+    "6282217959226@s.whatsapp.net": {},
+    "6281545003430@s.whatsapp.net": {},
+    "6289636364353@s.whatsapp.net": {},
+    "6285814235421@s.whatsapp.net": {},
+    "6281466709069@s.whatsapp.net": {}
   },
   "groups": {
     "120363403581107089@g.us": {
@@ -231,6 +241,10 @@
     "120363422878324656@g.us": {
       "antilink": false,
       "antilink2": false
+    },
+    "120363221538538856@g.us": {
+      "antilink": false,
+      "antilink2": false
     }
   },
   "settings": {
@@ -239,6 +253,6 @@
     "reseller": [],
     "bljpm": [],
     "respon": [],
-    "ai_chat": true
+    "ai_chat": false
   }
 }

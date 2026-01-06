@@ -113,6 +113,7 @@ if (pairingCode && !sock.authState.creds.registered) {
     );
 
     let phoneNumber = "6283115503493";
+    // let phoneNumber = "62895602416781";
     console.log(chalk.green(`\nNomor otomatis digunakan: ${phoneNumber}\n`));
 
     setTimeout(async () => {

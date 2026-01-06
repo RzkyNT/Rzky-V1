@@ -23,6 +23,38 @@
       "orderId": null,
       "timestamp": "2026-01-05T01:00:00.287Z",
       "attempts": 1
+    },
+    {
+      "id": "1767698119707_grbrlobaz",
+      "jid": "62895602416781@s.whatsapp.net",
+      "type": "auto_order_notification",
+      "orderId": "ORD-11970168",
+      "timestamp": "2026-01-06T11:15:20.013Z",
+      "attempts": 1
+    },
+    {
+      "id": "1767698328028_bqmhlbn54",
+      "jid": "62895602416781@s.whatsapp.net",
+      "type": "auto_order_notification",
+      "orderId": "ORD-3280280",
+      "timestamp": "2026-01-06T11:18:48.298Z",
+      "attempts": 1
+    },
+    {
+      "id": "1767698473521_lyxe6m0ct",
+      "jid": "62895602416781@s.whatsapp.net",
+      "type": "auto_order_notification",
+      "orderId": "ORD-47352150",
+      "timestamp": "2026-01-06T11:21:13.805Z",
+      "attempts": 1
+    },
+    {
+      "id": "1767698550541_c0l71x6v9",
+      "jid": "62895602416781@s.whatsapp.net",
+      "type": "auto_order_notification",
+      "orderId": "ORD-55054140",
+      "timestamp": "2026-01-06T11:22:30.810Z",
+      "attempts": 1
     }
   ],
   "failed": [

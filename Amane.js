@@ -4125,13 +4125,18 @@ ${global.ucapan()}
                 }
                 if (!text) return m.reply(`*Contoh :* ${cmd} info pesanan saya`);
 
+                // Tambahkan react emoji
+                await sock.sendMessage(m.chat, { react: { text: "🕧", key: m.key } });
+
                 const systemPrompt = "Anda adalah asisten AI untuk Depot Minhaqua. \n" +
                     "Jika user bertanya soal status pesanan atau cek order, tambahkan teks '[BUTTON:CEK_ORDER]' di akhir respon Anda.\n" +
                     "Jika user ingin membeli/memesan galon/air, tetapi tanpa menyebutkan spesifik angka tambahkan '[BUTTON:ORDER]' di akhir respon.\n" +
                     "Jika user minta daftar harga/produk, tambahkan '[BUTTON:LIST_PRODUK]' di akhir respon.\n" +
                     "Jawablah dengan sopan dan singkat.";
 
-                const result = await aiChat(systemPrompt, text, "llama3-8b-8192"); // Menggunakan model yang lebih cepat/stabil di Groq jika perlu, atau tetap gpt-oss-120b jika valid
+                // Gunakan sender sebagai session ID
+                const sessionId = m.sender; // 62895602416781@s.whatsapp.net atau 120363422878324656@g.us
+                const result = await aiChat(systemPrompt, text, "sanka", sessionId);
 
                 // Parse response for buttons
                 let finalBody = result;
@@ -11778,14 +11783,12 @@ BUTTON TRIGGERS (tambahkan di akhir respon):
 Pertanyaan User: "${m.body}"
 Jawablah sebagai MinBot:`;
 
-                                // Coba Gemini dulu, jika gagal fallback ke OpenAI
-                                let result;
-                                try {
-                                    result = await geminiChat(prompt);
-                                } catch (geminiError) {
-                                    console.log("Gemini failed, trying OpenAI fallback...");
-                                    result = await aiChat("Anda adalah asisten AI untuk Depot Minhaqua. Jawab dengan sopan dan singkat.", m.body, "llama3-8b-8192");
-                                }
+                                // Tambahkan react emoji untuk AI chat otomatis
+                                await sock.sendMessage(m.chat, { react: { text: "🕧", key: m.key } });
+                                
+                                // Gunakan Sanka API dengan session ID berdasarkan sender
+                                const sessionId = m.sender; // 62895602416781@s.whatsapp.net atau 120363422878324656@g.us
+                                const result = await aiChat(prompt, m.body, "sanka", sessionId);
 
                                 // Parse response for natural language orders
                                 let finalBody = result;

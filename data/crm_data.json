@@ -8,10 +8,99 @@
       "longitude": 107.0098526,
       "phone": "62895602416781",
       "joined": "2025-12-19T05:54:29.693Z",
-      "orders_count": 0
+      "orders_count": 4
     }
   },
-  "orders": [],
+  "orders": [
+    {
+      "id": "ORD-11970168",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizqi Ahsan Setiawan",
+      "address": "Blok U1 NO 7",
+      "latitude": -6.1990759,
+      "longitude": 107.0098526,
+      "item": "2x Isi Ulang (Galon Aqua)",
+      "items": [
+        {
+          "idx": 0,
+          "name": "Isi Ulang (Galon Aqua)",
+          "price": 6500,
+          "qty": 2
+        }
+      ],
+      "amount": 2,
+      "total": 13000,
+      "paymentMethod": "COD",
+      "status": "Menunggu",
+      "date": "2026-01-06T11:15:19.702Z"
+    },
+    {
+      "id": "ORD-3280280",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizqi Ahsan Setiawan",
+      "address": "Blok U1 NO 7",
+      "latitude": -6.1990759,
+      "longitude": 107.0098526,
+      "item": "3x Isi Ulang (Galon Aqua)",
+      "items": [
+        {
+          "idx": 0,
+          "name": "Isi Ulang (Galon Aqua)",
+          "price": 6500,
+          "qty": 3
+        }
+      ],
+      "amount": 3,
+      "total": 19500,
+      "paymentMethod": "COD",
+      "status": "Menunggu",
+      "date": "2026-01-06T11:18:48.028Z"
+    },
+    {
+      "id": "ORD-47352150",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizqi Ahsan Setiawan",
+      "address": "Blok U1 NO 7",
+      "latitude": -6.1990759,
+      "longitude": 107.0098526,
+      "item": "3x Isi Ulang (Galon Aqua)",
+      "items": [
+        {
+          "idx": 0,
+          "name": "Isi Ulang (Galon Aqua)",
+          "price": 6500,
+          "qty": 3
+        }
+      ],
+      "amount": 3,
+      "total": 19500,
+      "paymentMethod": "COD",
+      "status": "Menunggu",
+      "date": "2026-01-06T11:21:13.521Z"
+    },
+    {
+      "id": "ORD-55054140",
+      "customerId": "62895602416781@s.whatsapp.net",
+      "customerName": "Rizqi Ahsan Setiawan",
+      "address": "Blok U1 NO 7",
+      "latitude": -6.1990759,
+      "longitude": 107.0098526,
+      "item": "2x Tuker Gas LPG 3kg",
+      "items": [
+        {
+          "idx": 3,
+          "name": "Tuker Gas LPG 3kg",
+          "price": 24000,
+          "qty": 2
+        }
+      ],
+      "amount": 2,
+      "total": 48000,
+      "paymentMethod": "COD",
+      "status": "Menunggu",
+      "date": "2026-01-06T11:22:30.541Z"
+    }
+  ],
   "products": [
     {
       "name": "Isi Ulang (Galon Aqua)",
@@ -31,6 +120,7 @@
     }
   ],
   "couriers": [
-    "6289602792988"
+    "6289602792988",
+    "6287710659743"
   ]
 }
